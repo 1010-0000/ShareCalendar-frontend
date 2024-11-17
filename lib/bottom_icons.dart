@@ -10,7 +10,7 @@ class BottomIcons extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           Icon(FontAwesomeIcons.atom, color: Colors.green),
