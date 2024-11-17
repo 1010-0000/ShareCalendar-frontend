@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:sharecalendar_app/Main_Page.dart';
 import 'package:sharecalendar_app/sign_up_screen.dart';
 import 'calendar_page.dart';
 import 'schedule_creation_page.dart';
@@ -32,6 +33,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => LoginScreen(),
         '/calendar': (context) => CalendarPage(),
         '/signup': (context) => SignUpScreen(),
+        '/MainPage': (context) => MainPage(),
       },
     );
   }
