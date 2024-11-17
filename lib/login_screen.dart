@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'sign_up_screen.dart';
 
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -21,7 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // 여기서 실제 로그인 로직을 구현해야 합니다.
       // 예를 들어, 서버에 인증 요청을 보내고 응답을 기다리는 등의 작업을 수행합니다.
       // 지금은 간단히 로그인이 항상 성공한다고 가정하겠습니다.
-      Navigator.pushReplacementNamed(context, '/calendar');
+      Navigator.pushReplacementNamed(context, '/MainPage');
     }
   }
 
