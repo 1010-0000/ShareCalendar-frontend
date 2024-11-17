@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sharecalendar_app/sign_up_screen.dart';
 import 'calendar_page.dart';
-import 'schedule_creation_page.dart';
-import 'schedule_modify_page.dart';
 import 'login_screen.dart';
 
 void main() {
