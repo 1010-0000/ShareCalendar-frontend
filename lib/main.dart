@@ -4,9 +4,16 @@ import 'package:sharecalendar_app/Main_Page.dart';
 import 'package:sharecalendar_app/sign_up_screen.dart';
 import 'calendar_page.dart';
 import 'login_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    runApp(MyApp());
+  } catch (e) {
+    print('Firebase 초기화 실패: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {

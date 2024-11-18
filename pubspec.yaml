@@ -15,6 +15,8 @@ dependencies:
   flutter_localizations:  # 추가된 부분
     sdk: flutter
   cupertino_icons: ^1.0.8  # 첫 번째 파일에 포함된 패키지
+  firebase_core:
+  firebase_auth:
 
 dev_dependencies:
   flutter_test:
