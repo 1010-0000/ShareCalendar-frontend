@@ -17,6 +17,7 @@ dependencies:
   cupertino_icons: ^1.0.8  # 첫 번째 파일에 포함된 패키지
   firebase_core:
   firebase_auth:
+  shared_preferences: ^2.2.2  # 추가된 부분
 
 dev_dependencies:
   flutter_test:
