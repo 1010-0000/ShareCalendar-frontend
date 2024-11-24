@@ -4,8 +4,12 @@ import 'calendar_page.dart';
 
 class ScheduleCreatePage extends StatefulWidget {
   final DateTime selectedDate;
+  final OwnerInfo owner;
 
-  ScheduleCreatePage({required this.selectedDate});
+  ScheduleCreatePage({
+    required this.selectedDate,
+    required this.owner,
+  });
 
   @override
   _ScheduleCreatePageState createState() => _ScheduleCreatePageState();
@@ -87,9 +91,8 @@ class _ScheduleCreatePageState extends State<ScheduleCreatePage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header with shadow, centered text, and margin-top
             Container(
-              margin: EdgeInsets.only(top: 0), // Added margin-top
+              margin: EdgeInsets.only(top: 0),
               padding: EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: Colors.grey[200],
@@ -113,7 +116,7 @@ class _ScheduleCreatePageState extends State<ScheduleCreatePage> {
                   Expanded(
                     child: Center(
                       child: Text(
-                        '일정 생성하기',
+                        '${widget.owner.name}의 일정 생성하기',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w500,
@@ -121,13 +124,11 @@ class _ScheduleCreatePageState extends State<ScheduleCreatePage> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 48), // Balances the layout
+                  SizedBox(width: 48),
                 ],
               ),
             ),
-
             SizedBox(height: 20),
-
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
@@ -266,6 +267,7 @@ class _ScheduleCreatePageState extends State<ScheduleCreatePage> {
                                 endDate: _endDate!,
                                 endTime: _endTime,
                                 memo: _memoController.text,
+                                owner: widget.owner,
                               );
                               Navigator.pop(context, newSchedule);
                             } else {

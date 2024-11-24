@@ -1,8 +1,41 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'bottom_icons.dart';
 import 'schedule_creation_page.dart';
 import 'schedule_modify_page.dart';
+
+// Owner information class
+class OwnerInfo {
+  final String name;
+  final Color color;
+
+  const OwnerInfo({required this.name, required this.color});
+}
+
+// Schedule data model
+class Schedule {
+  final String id;
+  final String title;
+  final DateTime startDate;
+  final TimeOfDay? startTime;
+  final DateTime endDate;
+  final TimeOfDay? endTime;
+  final String memo;
+  final OwnerInfo owner;
+
+  Schedule({
+    required this.id,
+    required this.title,
+    required this.startDate,
+    this.startTime,
+    required this.endDate,
+    this.endTime,
+    required this.memo,
+    required this.owner,
+  });
+}
 
 class CalendarPage extends StatefulWidget {
   @override
@@ -14,6 +47,111 @@ class _CalendarPageState extends State<CalendarPage> {
   DateTime? _selectedDay;
   bool _showYearMonthPicker = false;
   Map<DateTime, List<Schedule>> events = {};
+  int scheduleCount = 0;
+  static const String EVENTS_STORAGE_KEY = 'calendar_events';
+
+  final List<OwnerInfo> owners = [
+    OwnerInfo(name: '문권', color: Colors.purple),
+    OwnerInfo(name: '선준', color: Colors.red),
+  ];
+
+  late Future<SharedPreferences> _prefs;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefs = SharedPreferences.getInstance();
+    _loadEvents();
+  }
+
+  // Load saved events
+  Future<void> _loadEvents() async {
+    try {
+      final prefs = await _prefs;
+      final String? eventsJson = prefs.getString(EVENTS_STORAGE_KEY);
+
+      if (eventsJson != null) {
+        final Map<String, dynamic> decodedData = json.decode(eventsJson);
+
+        setState(() {
+          events = {};
+          decodedData.forEach((key, value) {
+            final DateTime date = DateTime.parse(key);
+            final List<dynamic> scheduleList = value as List<dynamic>;
+
+            events[date] = scheduleList.map((scheduleData) {
+              return Schedule(
+                id: scheduleData['id'],
+                title: scheduleData['title'],
+                startDate: DateTime.parse(scheduleData['startDate']),
+                startTime: scheduleData['startTime'] != null
+                    ? TimeOfDay(
+                    hour: scheduleData['startTime']['hour'],
+                    minute: scheduleData['startTime']['minute']
+                )
+                    : null,
+                endDate: DateTime.parse(scheduleData['endDate']),
+                endTime: scheduleData['endTime'] != null
+                    ? TimeOfDay(
+                    hour: scheduleData['endTime']['hour'],
+                    minute: scheduleData['endTime']['minute']
+                )
+                    : null,
+                memo: scheduleData['memo'],
+                owner: OwnerInfo(
+                  name: scheduleData['owner']['name'],
+                  color: Color(scheduleData['owner']['color']),
+                ),
+              );
+            }).toList();
+          });
+
+          scheduleCount = events.values.fold(0, (sum, list) => sum + list.length);
+        });
+      }
+    } catch (e) {
+      print('Error loading events: $e');
+    }
+  }
+
+  // Save events
+  Future<void> _saveEvents() async {
+    try {
+      final prefs = await _prefs;
+
+      final Map<String, List<Map<String, dynamic>>> encodableData = {};
+
+      events.forEach((date, schedules) {
+        encodableData[date.toIso8601String()] = schedules.map((schedule) => {
+          'id': schedule.id,
+          'title': schedule.title,
+          'startDate': schedule.startDate.toIso8601String(),
+          'startTime': schedule.startTime != null ? {
+            'hour': schedule.startTime!.hour,
+            'minute': schedule.startTime!.minute,
+          } : null,
+          'endDate': schedule.endDate.toIso8601String(),
+          'endTime': schedule.endTime != null ? {
+            'hour': schedule.endTime!.hour,
+            'minute': schedule.endTime!.minute,
+          } : null,
+          'memo': schedule.memo,
+          'owner': {
+            'name': schedule.owner.name,
+            'color': schedule.owner.color.value,
+          },
+        }).toList();
+      });
+
+      await prefs.setString(EVENTS_STORAGE_KEY, json.encode(encodableData));
+    } catch (e) {
+      print('Error saving events: $e');
+    }
+  }
+
+  OwnerInfo getNextOwner() {
+    return owners[scheduleCount % owners.length];
+  }
 
   void _changeMonth(int delta) {
     setState(() {
@@ -28,7 +166,9 @@ class _CalendarPageState extends State<CalendarPage> {
       } else {
         events[date]!.add(schedule);
       }
+      scheduleCount++;
     });
+    _saveEvents(); // setState 밖에서 호출
   }
 
   void _updateEvent(DateTime date, Schedule updatedSchedule) {
@@ -40,6 +180,7 @@ class _CalendarPageState extends State<CalendarPage> {
         }
       }
     });
+    _saveEvents(); // setState 밖에서 호출
   }
 
   void _deleteEvent(DateTime date, String scheduleId) {
@@ -51,6 +192,7 @@ class _CalendarPageState extends State<CalendarPage> {
         }
       }
     });
+    _saveEvents(); // setState 밖에서 호출
   }
 
   List<TableRow> _buildCalendarRows() {
@@ -88,11 +230,17 @@ class _CalendarPageState extends State<CalendarPage> {
                 if (events[currentDate] != null)
                   Container(
                     margin: EdgeInsets.only(top: 4),
-                    width: 8,
-                    height: 8,
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
+                      color: events[currentDate]![0].owner.color.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      events[currentDate]![0].owner.name,
+                      style: TextStyle(
+                        color: events[currentDate]![0].owner.color,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
               ],
@@ -119,7 +267,6 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void _navigateToSchedulePage(DateTime selectedDate) async {
     if (events[selectedDate] != null && events[selectedDate]!.isNotEmpty) {
-      // 이미 일정이 있는 경우 수정 페이지로 이동
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
@@ -138,11 +285,13 @@ class _CalendarPageState extends State<CalendarPage> {
         }
       }
     } else {
-      // 새로운 일정 생성
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => ScheduleCreatePage(selectedDate: selectedDate),
+          builder: (context) => ScheduleCreatePage(
+            selectedDate: selectedDate,
+            owner: getNextOwner(),
+          ),
         ),
       );
 
@@ -154,75 +303,91 @@ class _CalendarPageState extends State<CalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return FutureBuilder<SharedPreferences>(
+      future: _prefs,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          return Scaffold(
+            body: SafeArea(
+              child: Stack(
+                children: [
+                  Column(
                     children: [
-                      IconButton(
-                        icon: Icon(Icons.chevron_left, color: Colors.green),
-                        onPressed: () => _changeMonth(-1),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => _showYearMonthPicker = true),
-                        child: Text(
-                          DateFormat('yyyy년 MM월').format(_focusedDay),
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+                      Container(
+                        padding: EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.chevron_left, color: Colors.green),
+                              onPressed: () => _changeMonth(-1),
+                            ),
+                            GestureDetector(
+                              onTap: () => setState(() => _showYearMonthPicker = true),
+                              child: Text(
+                                DateFormat('yyyy년 MM월').format(_focusedDay),
+                                style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.chevron_right, color: Colors.green),
+                              onPressed: () => _changeMonth(1),
+                            ),
+                          ],
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.chevron_right, color: Colors.green),
-                        onPressed: () => _changeMonth(1),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Table(
-                    children: [
-                      TableRow(
-                        children: ['일', '월', '화', '수', '목', '금', '토'].map((day) => Container(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          alignment: Alignment.center,
-                          child: Text(
-                            day,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: day == '일' ? Colors.red : (day == '토' ? Colors.blue : Colors.black),
+                      Expanded(
+                        child: Table(
+                          children: [
+                            TableRow(
+                              children: ['일', '월', '화', '수', '목', '금', '토'].map((day) => Container(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  day,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: day == '일' ? Colors.red : (day == '토' ? Colors.blue : Colors.black),
+                                  ),
+                                ),
+                              )).toList(),
                             ),
-                          ),
-                        )).toList(),
+                            ..._buildCalendarRows(),
+                          ],
+                        ),
                       ),
-                      ..._buildCalendarRows(),
+                      BottomIcons(),
                     ],
                   ),
-                ),
-                BottomIcons(),
-              ],
-            ),
-            if (_showYearMonthPicker)
-              Positioned.fill(
-                child: YearMonthPicker(
-                  initialDate: _focusedDay,
-                  onSelect: (year, month) {
-                    setState(() {
-                      _focusedDay = DateTime(year, month, 1);
-                      _showYearMonthPicker = false;
-                    });
-                  },
-                  onClose: () => setState(() => _showYearMonthPicker = false),
-                ),
+                  if (_showYearMonthPicker)
+                    Positioned.fill(
+                      child: YearMonthPicker(
+                        initialDate: _focusedDay,
+                        onSelect: (year, month) {
+                          setState(() {
+                            _focusedDay = DateTime(year, month, 1);
+                            _showYearMonthPicker = false;
+                          });
+                        },
+                        onClose: () => setState(() => _showYearMonthPicker = false),
+                      ),
+                    ),
+                ],
               ),
-          ],
-        ),
-      ),
+            ),
+          );
+        } else {
+          return Center(child: CircularProgressIndicator());
+        }
+      },
     );
   }
 }
@@ -324,22 +489,3 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
   }
 }
 
-class Schedule {
-  final String id;
-  final String title;
-  final DateTime startDate;
-  final TimeOfDay? startTime;
-  final DateTime endDate;
-  final TimeOfDay? endTime;
-  final String memo;
-
-  Schedule({
-    required this.id,
-    required this.title,
-    required this.startDate,
-    this.startTime,
-    required this.endDate,
-    this.endTime,
-    required this.memo,
-  });
-}
