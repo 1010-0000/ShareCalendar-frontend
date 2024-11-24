@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sharecalendar_app/Profile_page.dart';
 import 'bottom_icons.dart';
-import 'calendar_page.dart';  // 추가: CalendarPage 임포트
+
 
 class AlarmSettingsPage extends StatefulWidget {
   @override
@@ -41,7 +42,7 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                       // 뒤로가기 버튼 클릭 시 캘린더 페이지로 이동
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => CalendarPage()),
+                        MaterialPageRoute(builder: (context) => ProfilePage(username: "", userId: "")),
                       );
                     },
                   ),
