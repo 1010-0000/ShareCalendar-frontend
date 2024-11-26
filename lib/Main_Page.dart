@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'bottom_icons.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:provider/provider.dart';
 import 'user_provider.dart';
@@ -182,26 +181,26 @@ class _MainPageState extends State<MainPage> {
     final currentDate = dateFormat.format(selectedDate);
 
     // 일정 데이터 (백엔드 없이 하드코딩)
-    final schedules = [
-      {
-        'date': DateTime.now(),
-        'title': '친구 만나기',
-        'time': '09:30 - 11:00',
-        'owner': '선준',
-      },
-      {
-        'date': DateTime.now(),
-        'title': '장보기',
-        'time': '10:00 - 12:00',
-        'owner': loggedInUser,
-      },
-      {
-        'date': DateTime.now(),
-        'title': '운동하기',
-        'time': '15:00 - 16:00',
-        'owner': '건우',
-      },
-    ];
+    // final schedules = [
+    //   {
+    //     'date': DateTime.now(),
+    //     'title': '친구 만나기',
+    //     'time': '09:30 - 11:00',
+    //     'owner': '선준',
+    //   },
+    //   {
+    //     'date': DateTime.now(),
+    //     'title': '장보기',
+    //     'time': '10:00 - 12:00',
+    //     'owner': loggedInUser,
+    //   },
+    //   {
+    //     'date': DateTime.now(),
+    //     'title': '운동하기',
+    //     'time': '15:00 - 16:00',
+    //     'owner': '건우',
+    //   },
+    // ];
 
 
     return Scaffold(

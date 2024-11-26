@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'bottom_icons.dart';
 import 'main_page.dart';
 import 'calendar_page.dart';
 import 'Profile_page.dart';
