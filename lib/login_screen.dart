@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
 
         // 로그인 성공 시 메인 페이지로 이동
-        Navigator.pushReplacementNamed(context, '/MainPage');
+        Navigator.pushReplacementNamed(context, '/mainPage');
       } catch (e) {
         // 로그인 실패 시 에러 메시지 출력
         setState(() {

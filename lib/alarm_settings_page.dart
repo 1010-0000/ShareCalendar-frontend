@@ -42,7 +42,7 @@ class _AlarmSettingsPageState extends State<AlarmSettingsPage> {
                       // 뒤로가기 버튼 클릭 시 캘린더 페이지로 이동
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => ProfilePage(username: "", userId: "")),
+                        MaterialPageRoute(builder: (context) => ProfilePage()),
                       );
                     },
                   ),

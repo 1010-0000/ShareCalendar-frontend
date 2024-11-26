@@ -100,7 +100,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ProfilePage(username: "", userId: ""),
+                    builder: (context) => ProfilePage(),
                   ),
                 );
               },

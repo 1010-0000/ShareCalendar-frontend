@@ -4,14 +4,7 @@ import 'alarm_settings_page.dart';
 import 'profile_setting.dart';  // 새로 추가된 import
 import 'bottom_icons.dart';
 class ProfilePage extends StatelessWidget {
-  final String username;
-  final String userId;
-
-  const ProfilePage({
-    Key? key,
-    required this.username,
-    required this.userId,
-  }) : super(key: key);
+  const ProfilePage({Key? key}) : super(key: key);
 
   Future<bool> _showConfirmationDialog(BuildContext context, String action) async {
     return await showDialog(
@@ -38,9 +31,8 @@ class ProfilePage extends StatelessWidget {
   void _handleLogout(BuildContext context) async {
     if (await _showConfirmationDialog(context, '로그아웃')) {
       // Implement logout logic here
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => LoginScreen()),
+      Navigator.pushNamedAndRemoveUntil(
+        context, "/", (route) => false
       );
     }
   }
@@ -48,9 +40,8 @@ class ProfilePage extends StatelessWidget {
   void _handleDeleteAccount(BuildContext context) async {
     if (await _showConfirmationDialog(context, '회원탈퇴')) {
       // Implement account deletion logic here
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => LoginScreen()),
+      Navigator.pushNamedAndRemoveUntil(
+          context, "/", (route) => false
       );
     }
   }
@@ -86,18 +77,18 @@ class ProfilePage extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 40,
-                        backgroundImage: AssetImage('assets/doraemon.png'),
+                        backgroundImage: null,
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        username,
+                        "김문권",
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        userId,
+                        "1",
                         style: TextStyle(
                           color: Colors.grey,
                         ),
