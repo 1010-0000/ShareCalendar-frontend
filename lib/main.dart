@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
         '/calendar': (context) => CalendarPage(),
         '/signup': (context) => SignUpScreen(),
         '/mainPage': (context) => MainPage(),
-        '/profile': (context) => ProfilePage(username: "", userId: ""),
+        '/profile': (context) => ProfilePage(),
         '/profileSetting': (context) => ProfileSetting(),
       },
     );
