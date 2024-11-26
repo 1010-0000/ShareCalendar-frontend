@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
+import 'bottom_icons.dart';
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
 
@@ -35,19 +34,19 @@ class _MainPageState extends State<MainPage> {
     // 일정 데이터 (백엔드 없이 하드코딩)
     final schedules = [
       {
-        'date': DateTime(2024, 11, 22),
+        'date': DateTime.now(),
         'title': '친구 만나기',
         'time': '09:30 - 11:00',
         'owner': '선준',
       },
       {
-        'date': DateTime(2024, 11, 23),
+        'date': DateTime.now(),
         'title': '장보기',
         'time': '10:00 - 12:00',
         'owner': loggedInUser,
       },
       {
-        'date': DateTime(2024, 11, 22),
+        'date': DateTime.now(),
         'title': '운동하기',
         'time': '15:00 - 16:00',
         'owner': '건우',
@@ -234,34 +233,7 @@ class _MainPageState extends State<MainPage> {
             ),
 
             const Spacer(),
-
-            // Bottom Navigation Bar
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade300),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Icon(FontAwesomeIcons.atom, color: Colors.green),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/calendar');
-                    },
-                    child: Icon(FontAwesomeIcons.calendarCheck, color: Colors.green),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/Profile');
-                    },
-                    child: Icon(Icons.person, color: Colors.green),
-                  ),
-                ],
-              ),
-            ),
+            BottomIcons(),
           ],
         ),
       ),
