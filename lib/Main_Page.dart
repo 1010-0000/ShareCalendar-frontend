@@ -39,6 +39,10 @@ class _MainPageState extends State<MainPage> {
 
   // 유저 및 유저의 친구목록 init
   Future<void> _initializeData() async {
+    setState(() {
+      isLoading = true; // 로딩 시작
+    });
+
     try {
       final userAndFriends = await fetchUserAndFriends(); // fetchUserAndFriends 호출
       // * userAndFriends값 어딘가에 저장
@@ -56,6 +60,7 @@ class _MainPageState extends State<MainPage> {
       });
 
       print("초기화 완료 ${_tasksByUser}");
+
     } catch (e) {
       print("오류 발생: $e");
     }
@@ -348,6 +353,7 @@ class _MainPageState extends State<MainPage> {
                               selectedDate = date;
                               _generateWeekDays();
                             });
+                            _initializeData(); // 새로운 날짜에 해당하는 데이터 로드
                           },
                           child: CircleAvatar(
                             radius: 20,
