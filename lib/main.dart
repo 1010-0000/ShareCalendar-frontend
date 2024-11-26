@@ -40,9 +40,9 @@ class MyApp extends StatelessWidget {
         '/': (context) => LoginScreen(),
         '/calendar': (context) => CalendarPage(),
         '/signup': (context) => SignUpScreen(),
-        '/MainPage': (context) => MainPage(),
-        '/Profile': (context) => ProfilePage(username: "", userId: ""),
-        '/ProfileSetting': (context) => ProfileSetting(),
+        '/mainPage': (context) => MainPage(),
+        '/profile': (context) => ProfilePage(username: "", userId: ""),
+        '/profileSetting': (context) => ProfileSetting(),
       },
     );
   }

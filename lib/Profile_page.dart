@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'login_screen.dart';
 import 'alarm_settings_page.dart';
-import 'main_page.dart';
-import 'calendar_page.dart';
 import 'profile_setting.dart';  // 새로 추가된 import
-
+import 'bottom_icons.dart';
 class ProfilePage extends StatelessWidget {
   final String username;
   final String userId;
@@ -149,27 +146,7 @@ class ProfilePage extends StatelessWidget {
               ],
             ),
           ),
-          // Bottom navigation
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.grey.shade300)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pushReplacementNamed(context, '/MainPage'),
-                  child: Icon(FontAwesomeIcons.atom, color: Colors.green),
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.pushReplacementNamed(context, '/calendar'),
-                  child: Icon(FontAwesomeIcons.calendarCheck, color: Colors.green),
-                ),
-                Icon(Icons.person, color: Colors.green),
-              ],
-            ),
-          ),
+          BottomIcons(),
         ],
       ),
     );
