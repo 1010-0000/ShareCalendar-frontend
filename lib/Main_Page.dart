@@ -14,6 +14,7 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   final DatabaseReference database = FirebaseDatabase.instance.ref(); //파이어베이스 인스턴스 참조
   List<Map<String, dynamic>> _tasksByUser = []; // 유저 및 친구들 정보 및 할일들 담은 List
+  bool isLoading = true; // 로딩 상태 추가
   late DateTime selectedDate;
   late List<DateTime> weekDays;
   final dateFormat = DateFormat('M월 d일', 'ko_KR');
@@ -51,6 +52,7 @@ class _MainPageState extends State<MainPage> {
       setState(() {
         // 예: _userData = userAndFriends;
         _tasksByUser = tasks;
+        isLoading = false; // 데이터 로드 완료
       });
 
       print("초기화 완료 ${_tasksByUser}");
@@ -156,6 +158,7 @@ class _MainPageState extends State<MainPage> {
               "memo": task["memo"] ?? "",
               "startTime": task["startTime"] ?? "",
               "title": task["title"] ?? "",
+              "date" : formattedDate,
           });
         }
       } catch (e) {
@@ -193,6 +196,7 @@ class _MainPageState extends State<MainPage> {
         'owner': '건우',
       },
     ];
+
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0FFF0),
@@ -265,7 +269,7 @@ class _MainPageState extends State<MainPage> {
 
                       // 일정 표시
                       ...schedules
-                          .where((schedule) =>
+                          .where((schedule) => //특정 조건만 랜더링 하는 .where
                       schedule['date'].toString().substring(0, 10) ==
                           selectedDate.toString().substring(0, 10))
                           .map((schedule) => Padding(
