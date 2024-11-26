@@ -163,7 +163,6 @@ class _MainPageState extends State<MainPage> {
               "memo": task["memo"] ?? "",
               "startTime": task["startTime"] ?? "",
               "title": task["title"] ?? "",
-              "date" : formattedDate,
           });
         }
       } catch (e) {
@@ -206,185 +205,193 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0FFF0),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // Welcome Header
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '반가워요',
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        backgroundColor: Colors.white,
-                        radius: 25,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        loggedInUser,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Date Card
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Padding(
+            Column(
+              children: [
+                // Welcome Header
+                Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        currentDate,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        loggedInUser,
-                        style: const TextStyle(
-                          fontSize: 16,
+                      const Text(
+                        '반가워요',
+                        style: TextStyle(
+                          fontSize: 24,
                           color: Colors.grey,
                         ),
                       ),
-                      const SizedBox(height: 10),
-
-                      // 일정 표시
-                      ...schedules
-                          .where((schedule) => //특정 조건만 랜더링 하는 .where
-                      schedule['date'].toString().substring(0, 10) ==
-                          selectedDate.toString().substring(0, 10))
-                          .map((schedule) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_today,
-                              color: Colors.green,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    schedule['title'].toString(),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        schedule['time'].toString(),
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        schedule['owner'].toString(),
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: schedule['owner'] == loggedInUser
-                                              ? Colors.green
-                                              : Colors.grey,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ))
-                          .toList(),
-
-                      if (schedules
-                          .where((schedule) =>
-                      schedule['date'].toString().substring(0, 10) ==
-                          selectedDate.toString().substring(0, 10))
-                          .isEmpty)
-                        const Text(
-                          '일정 없음',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
-                        ),
-
-                      const SizedBox(height: 20),
-
-                      // Week Calendar
+                      const SizedBox(height: 8),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: weekDays
-                            .map((date) => GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              selectedDate = date;
-                              _generateWeekDays();
-                            });
-                            _initializeData(); // 새로운 날짜에 해당하는 데이터 로드
-                          },
-                          child: CircleAvatar(
-                            radius: 20,
-                            backgroundColor: date.year == selectedDate.year &&
-                                date.month == selectedDate.month &&
-                                date.day == selectedDate.day
-                                ? Colors.green
-                                : Colors.grey[200],
-                            child: Text(
-                              '${date.day}',
-                              style: TextStyle(
-                                color: date.year == selectedDate.year &&
-                                    date.month == selectedDate.month &&
-                                    date.day == selectedDate.day
-                                    ? Colors.white
-                                    : Colors.black,
-                                fontSize: 16,
-                              ),
+                        children: [
+                          const CircleAvatar(
+                            backgroundColor: Colors.white,
+                            radius: 25,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            loggedInUser,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ))
-                            .toList(),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
+
+                // Date Card
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            currentDate,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            loggedInUser,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // 일정 표시
+                          ..._tasksByUser
+                            .map((schedule) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4.0),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_today,
+                                    color: Colors.green,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          schedule['title'],
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              "10:00 - 12:00",
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              schedule['name'],
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: schedule['name'] == "문권"
+                                                    ? Colors.green
+                                                    : Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          )).toList(),
+
+                          if (_tasksByUser.isEmpty)
+                            const Text(
+                              '일정 없음',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+
+                          const SizedBox(height: 20),
+
+                          // Week Calendar
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: weekDays
+                                .map((date) => GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  selectedDate = date;
+                                  _generateWeekDays();
+                                });
+                                _initializeData(); // 새로운 날짜에 해당하는 데이터 로드
+                              },
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundColor: date.year == selectedDate.year &&
+                                    date.month == selectedDate.month &&
+                                    date.day == selectedDate.day
+                                    ? Colors.green
+                                    : Colors.grey[200],
+                                child: Text(
+                                  '${date.day}',
+                                  style: TextStyle(
+                                    color: date.year == selectedDate.year &&
+                                        date.month == selectedDate.month &&
+                                        date.day == selectedDate.day
+                                        ? Colors.white
+                                        : Colors.black,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ))
+                                .toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const Spacer(),
+                BottomIcons(),
+              ],
             ),
 
-            const Spacer(),
-            BottomIcons(),
+            if (isLoading)
+              Container(
+                color: Colors.black.withOpacity(0.5), // 배경을 어둡게 처리
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              ),
+
+
           ],
         ),
       ),
