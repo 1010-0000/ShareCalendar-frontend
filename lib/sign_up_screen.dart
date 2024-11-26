@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -15,7 +16,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   String? _errorMessage;
 
-  void _validateInputs() {
+  void _validateInputs() async {
     // 빈 칸 체크
     if (_idController.text.isEmpty ||
         _passwordController.text.isEmpty ||
@@ -40,9 +41,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _errorMessage = null;
     });
 
-    // 여기에 실제 회원가입 로직이 들어갈 예정
-    // 지금은 단순히 로그인 화면으로 돌아가기
-    Navigator.pop(context);
+    // Firebase 회원가입 로직 추가
+    try {
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: _idController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      await userCredential.user?.updateDisplayName(_nicknameController.text.trim());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('회원가입이 성공적으로 완료되었습니다!')),
+      );
+      Navigator.pop(context);
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        if (e.code == 'email-already-in-use') {
+          _errorMessage = '이미 사용 중인 이메일입니다.';
+        } else if (e.code == 'weak-password') {
+          _errorMessage = '비밀번호가 너무 약합니다.';
+        } else if (e.code == 'invalid-email') {
+          _errorMessage = '잘못된 이메일 형식입니다.';
+        } else {
+          _errorMessage = '회원가입 실패: ${e.message}';
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = '예기치 못한 오류가 발생했습니다: ${e.toString()}';
+      });
+    }
   }
 
   @override
