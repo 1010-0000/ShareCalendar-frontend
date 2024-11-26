@@ -18,6 +18,16 @@ class _ProfileSettingState extends State<ProfileSetting> {
   String gender = "남성";
 
   @override
+  void initState() {
+    super.initState();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sharecalendar_app/Main_Page.dart';
 import 'package:sharecalendar_app/Profile_page.dart';
@@ -8,6 +9,7 @@ import 'calendar_page.dart';
 import 'login_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:html' as html; // 웹 관련 코드 처리
+import 'user_provider.dart'; // 위에서 만든 UserProvider
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +36,12 @@ void main() async {
   } catch (e) {
     print('Firebase 초기화 실패: $e');
   }
-  runApp(MyApp());
+  runApp( MultiProvider(
+    providers: [
+      ChangeNotifierProvider(create: (_) => UserProvider()),
+    ],
+    child: MyApp(),
+  ),);
 }
 
 class MyApp extends StatelessWidget {

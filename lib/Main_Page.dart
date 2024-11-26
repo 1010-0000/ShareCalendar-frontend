@@ -3,6 +3,8 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'bottom_icons.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:provider/provider.dart';
+import 'user_provider.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -21,15 +23,12 @@ class _MainPageState extends State<MainPage> {
   final loggedInUser = '희찬';
   final otherUsers = ['선준', '건우', '문권', '희찬'];
 
-
-
   @override
   void initState() {
     super.initState();
     _initializeData();
     selectedDate = DateTime.now();
     _generateWeekDays();
-
   }
 
   void _generateWeekDays() {
@@ -72,14 +71,17 @@ class _MainPageState extends State<MainPage> {
     // 사용자 및 친구들 id,이름,사용자여부 담는 객체
     List<Map<String, dynamic>> result=[];
 
-    // Firebase Authentication을 통해 현재 로그인한 사용자 가져오기
-    User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      throw Exception("로그인된 사용자가 없습니다.");
-    }
+    // // Firebase Authentication을 통해 현재 로그인한 사용자 가져오기
+    // User? currentUser = FirebaseAuth.instance.currentUser;
+    // if (currentUser == null) {
+    //   throw Exception("로그인된 사용자가 없습니다.");
+    // }
+    //
+    // // 사용자 ID
+    // String userId = currentUser.uid;
 
-    // 사용자 ID
-    String userId = currentUser.uid;
+    // Provider를 통해 userId 가져오기
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
 
     // 1. 현재 사용자 정보 가져오기
     DataSnapshot userSnapshot = await database.child("users/$userId").get();
