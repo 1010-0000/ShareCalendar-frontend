@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'bottom_icons.dart';
 import 'schedule_creation_page.dart';
 import 'schedule_modify_page.dart';
-
+import 'package:firebase_database/firebase_database.dart';
+import './firebaseService.dart';
 // Owner information class
 class OwnerInfo {
   final String name;
@@ -43,6 +44,7 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
+  final FirebaseService _firebaseService = FirebaseService();
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   bool _showYearMonthPicker = false;
@@ -62,7 +64,29 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
     _prefs = SharedPreferences.getInstance();
     _loadEvents();
+    _initializeData();
   }
+
+  Future<void> _initializeData() async {
+    try {
+      // 1. 사용자 및 친구 정보 가져오기
+      final userAndFriends = await _firebaseService.fetchUserAndFriends();
+
+      // 2. 해당 월
+      final yearMonth = DateFormat('yyyy-MM').format(DateTime.now());
+
+      // 3. calendar/{yearMonth}에 존재하는 사용자 필터링
+      final filteredUsers = await _firebaseService.filterUsersInCalendar(userAndFriends, yearMonth);
+
+      // 4. 필터링된 사용자들의 tasks 가져오기
+      final tasks = await _firebaseService.fetchTasksForFilteredUsers(filteredUsers, DateTime.now());
+
+      print("tasks 데이터: $tasks");
+    } catch (e) {
+      print("오류 발생: $e");
+    }
+  }
+
 
   // Load saved events
   Future<void> _loadEvents() async {
