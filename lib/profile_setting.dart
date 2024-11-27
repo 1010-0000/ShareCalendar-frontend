@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'bottom_icons.dart';
-import 'main_page.dart';
-import 'calendar_page.dart';
-import 'Profile_page.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'user_provider.dart';
 
 class ProfileSetting extends StatefulWidget {
   const ProfileSetting({Key? key}) : super(key: key);
@@ -13,103 +12,78 @@ class ProfileSetting extends StatefulWidget {
 }
 
 class _ProfileSettingState extends State<ProfileSetting> {
-  String nickname = "희찬";
+  final DatabaseReference database = FirebaseDatabase.instance.ref();
+
+  String userId = '';
+  String name = "";
   String birthDate = "2001.08.25";
   String gender = "남성";
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          '프로필',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '프로필 정보',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            SizedBox(height: 20),
-            _buildProfileItem(
-              context: context,
-              label: '닉네임',
-              value: nickname,
-              onTap: () => _showEditDialog('닉네임', nickname, (newValue) {
-                setState(() => nickname = newValue);
-              }),
-            ),
-            _buildProfileItem(
-              context: context,
-              label: '생년월일/성별',
-              value: '$birthDate / $gender',
-              onTap: () => _showBirthGenderDialog(),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.grey.shade300)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            GestureDetector(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => MainPage()),
-                );
-              },
-              child: Icon(FontAwesomeIcons.atom, color: Colors.green),
-            ),
-            GestureDetector(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => CalendarPage()),
-                );
-              },
-              child: Icon(FontAwesomeIcons.calendarCheck, color: Colors.green),
-            ),
-            GestureDetector(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProfilePage(),
-                  ),
-                );
-              },
-              child: Icon(Icons.person, color: Colors.green),
-            ),
-          ],
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      // // Provider에서 userId 가져오기
+      // userId = Provider.of<UserProvider>(context, listen: false).userId ?? '';
+
+      // Firebase Authentication을 통해 현재 로그인한 사용자 가져오기
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception("로그인된 사용자가 없습니다.");
+      }
+
+      // 사용자 ID
+      String userId = currentUser.uid;
+
+      if (userId.isEmpty) {
+        throw Exception('로그인된 사용자가 없습니다.');
+      }
+
+      // Firebase에서 사용자 정보 가져오기
+      final userSnapshot = await database.child('users/$userId').get();
+
+      if (userSnapshot.exists) {
+        final userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+
+        setState(() {
+          name = userData['name'] ?? '이름 없음';
+          // birthDate = userData['birthDate'] ?? '생년월일 없음';
+          // gender = userData['gender'] ?? '성별 없음';
+        });
+      } else {
+        throw Exception('사용자 데이터를 찾을 수 없습니다.');
+      }
+    } catch (e) {
+      print('오류 발생: $e');
+    }
+  }
+
+  Future<void> _saveUserData() async {
+    try {
+      if (userId.isEmpty) {
+        throw Exception('로그인된 사용자가 없습니다.');
+      }
+
+      // Firebase에 수정된 데이터 저장
+      await database.child('users/$userId').update({
+        'name': name,
+        'birthDate': birthDate,
+        'gender': gender,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('프로필이 저장되었습니다.')),
+      );
+    } catch (e) {
+      print('오류 발생: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('프로필 저장 중 오류가 발생했습니다.')),
+      );
+    }
   }
 
   Widget _buildProfileItem({
@@ -249,6 +223,61 @@ class _ProfileSettingState extends State<ProfileSetting> {
           },
         );
       },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          '프로필',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '프로필 정보',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            SizedBox(height: 20),
+            _buildProfileItem(
+              context: context,
+              label: '닉네임',
+              value: name,
+              onTap: () => _showEditDialog('닉네임', name, (newValue) {
+                setState(() => name = newValue);
+              }),
+            ),
+            _buildProfileItem(
+              context: context,
+              label: '생년월일/성별',
+              value: '$birthDate / $gender',
+              onTap: () => _showBirthGenderDialog(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
