@@ -38,10 +38,6 @@ class _MainPageState extends State<MainPage> {
 
   // 유저 및 유저의 친구목록 init
   Future<void> _initializeData() async {
-    setState(() {
-      isLoading = true; // 로딩 시작
-    });
-
     try {
       final userAndFriends = await fetchUserAndFriends(); // fetchUserAndFriends 호출
       // * userAndFriends값 어딘가에 저장
