@@ -29,11 +29,11 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text.trim(),
         );
 
-        // 로그인 성공: Provider를 통해 userId 저장
-        final userId = userCredential.user?.uid;
-        if (userId != null) {
-          Provider.of<UserProvider>(context, listen: false).setUserId(userId);
-        }
+        // // 로그인 성공: Provider를 통해 userId 저장
+        // final userId = userCredential.user?.uid;
+        // if (userId != null) {
+        //   Provider.of<UserProvider>(context, listen: false).setUserId(userId);
+        // }
 
         // 로그인 성공 시 메인 페이지로 이동
         Navigator.pushReplacementNamed(context, '/mainPage');

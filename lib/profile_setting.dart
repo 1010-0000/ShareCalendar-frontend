@@ -233,74 +233,76 @@ class _ProfileSettingState extends State<ProfileSetting> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          '프로필',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: _saveUserData,
-            child: Text(
-              '저장',
-              style: TextStyle(color: Colors.green, fontSize: 16),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back, color: Colors.black),
+              onPressed: () => Navigator.pop(context),
             ),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '프로필 정보',
+            title: Text(
+              '프로필 설정',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
                 color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 20),
-            _buildProfileItem(
-              context: context,
-              label: '닉네임',
-              value: name,
-              onTap: () => _showEditDialog('닉네임', name, (newValue) {
-                setState(() => name = newValue);
-              }),
-            ),
-            _buildProfileItem(
-              context: context,
-              label: '생년월일/성별',
-              value: '$birthDate / $gender',
-              onTap: () => _showBirthGenderDialog(),
-            ),
-            if (isLoading)
-              Container(
-                color: Colors.black.withOpacity(0.5), // 배경을 어둡게 처리
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
+            centerTitle: true,
+            actions: [
+              TextButton(
+                onPressed: _saveUserData,
+                child: Text(
+                  '저장',
+                  style: TextStyle(color: Colors.green, fontSize: 16),
                 ),
               ),
-          ],
+            ],
+          ),
+          body:Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '프로필 정보',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                SizedBox(height: 20),
+                _buildProfileItem(
+                  context: context,
+                  label: '닉네임',
+                  value: name,
+                  onTap: () => _showEditDialog('닉네임', name, (newValue) {
+                    setState(() => name = newValue);
+                  }),
+                ),
+                _buildProfileItem(
+                  context: context,
+                  label: '생년월일/성별',
+                  value: '$birthDate / $gender',
+                  onTap: _showBirthGenderDialog,
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+        if (isLoading)
+          Container(
+            color: Colors.black.withOpacity(0.5), // 전체 화면 반투명
+            child: Center(
+              child: CircularProgressIndicator(), // 중앙 로딩 인디케이터
+            ),
+          ),
+      ],
     );
   }
 }

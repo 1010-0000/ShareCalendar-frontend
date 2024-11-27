@@ -3,22 +3,30 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 class FirebaseService {
+  // 내부에서 사용할 정적 인스턴스 변수
+  static final FirebaseService _instance = FirebaseService._internal();
   final DatabaseReference database = FirebaseDatabase.instance.ref();
+  // 외부에서 인스턴스를 가져갈 때 사용하는 factory constructor
+  factory FirebaseService() {
+    return _instance;
+  }
+  // 내부에서만 호출할 수 있는 private constructor
+  FirebaseService._internal();
 
-  /// 로그인한 사용자 정보와 친구 목록 가져오기
-  Future<List<Map<String, dynamic>>> fetchUserAndFriends() async {
-    List<Map<String, dynamic>> result = [];
-
-    // Firebase Authentication을 통해 현재 로그인한 사용자 가져오기
-    User? currentUser = FirebaseAuth.instance.currentUser;
+  String getCurrentUserId() {
+    final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       throw Exception("로그인된 사용자가 없습니다.");
     }
+    return currentUser.uid;
+  }
 
-    // 사용자 ID
-    String userId = currentUser.uid;
+  /// 로그인한 사용자 정보와 친구 목록 가져오기
+  Future<List<Map<String, dynamic>>> fetchUserAndFriends() async {
+    // 사용자 ID 가져오기
+    String userId = getCurrentUserId();
 
-    // 1. 현재 사용자 정보 가져오기
+    // 1. 현재 사용자 정보 데이터베이스에서 가져오기
     DataSnapshot userSnapshot = await database.child("users/$userId").get();
     if (!userSnapshot.exists) {
       throw Exception("사용자 정보를 찾을 수 없습니다.");
@@ -26,10 +34,13 @@ class FirebaseService {
 
     Map<String, dynamic> userData = Map<String, dynamic>.from(userSnapshot.value as Map);
 
+    List<Map<String, dynamic>> result = [];
+
     // 사용자 정보에서 필요한 값만 추출
     result.add({
       "userId": userId,
       "name": userData["name"],
+      "isUser": true,
     });
 
     // 2. 친구 목록 가져오기
@@ -44,6 +55,7 @@ class FirebaseService {
         result.add({
           "userId": friendId,
           "name": friendData["name"],
+          "isUser": false,
         });
       }
     }
@@ -87,6 +99,7 @@ class FirebaseService {
       Map<String, dynamic> userInfo = {
         "userId": userId,
         "name": user['name'],
+        "isUser" : user['isUser'],
       };
 
       try {
@@ -110,5 +123,42 @@ class FirebaseService {
     }
 
     return result;
+  }
+
+  // 사용자의 name, email 조회
+  Future<Map<String, String>> getUserNameEmail() async {
+    try {
+      // // Provider를 통해 userId 가져오기
+      // final userId = Provider.of<UserProvider>(context, listen: false).userId;
+
+      // 사용자 ID
+      String userId = getCurrentUserId();
+
+      if (userId == null) {
+        throw Exception('로그인된 사용자가 없습니다.');
+      }
+
+      // Firebase Database에서 사용자 데이터 가져오기
+      final userSnapshot = await database.child('users/$userId').get();
+
+      if (userSnapshot.exists) {
+        final userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+// name과 email만 추출하여 리턴
+        return {
+          'name': userData['name'] ?? '이름 없음',
+          'email': userData['email'] ?? '이메일 없음',
+        };
+
+      } else {
+        throw Exception('사용자 데이터를 찾을 수 없습니다.');
+      }
+    } catch (e) {
+      print('오류 발생: $e');
+      // 기본값 반환
+      return {
+        'name': '오류 발생',
+        'email': '오류 발생',
+      };
+    }
   }
 }

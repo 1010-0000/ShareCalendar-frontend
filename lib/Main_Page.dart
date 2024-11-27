@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'bottom_icons.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:provider/provider.dart';
-import 'user_provider.dart';
-import 'firebaseService.dart';
+import 'services/firebaseService.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -200,7 +196,7 @@ class _MainPageState extends State<MainPage> {
                                               schedule['name'],
                                               style: TextStyle(
                                                 fontSize: 14,
-                                                color: schedule['name'] == "문권"
+                                                color: schedule['isUser'] == true
                                                     ? Colors.green
                                                     : Colors.grey,
                                               ),

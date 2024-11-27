@@ -6,7 +6,7 @@ import 'bottom_icons.dart';
 import 'schedule_creation_page.dart';
 import 'schedule_modify_page.dart';
 import 'package:firebase_database/firebase_database.dart';
-import './firebaseService.dart';
+import 'services/firebaseService.dart';
 // Owner information class
 class OwnerInfo {
   final String name;
@@ -44,6 +44,7 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
+  bool isLoading = true; // 로딩 상태 추가
   final FirebaseService _firebaseService = FirebaseService();
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
