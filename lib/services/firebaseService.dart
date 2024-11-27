@@ -125,6 +125,7 @@ class FirebaseService {
     return result;
   }
 
+  // 사용자의 name, email 조회
   Future<Map<String, String>> getUserNameEmail() async {
     try {
       // // Provider를 통해 userId 가져오기
@@ -158,7 +159,6 @@ class FirebaseService {
         'name': '오류 발생',
         'email': '오류 발생',
       };
-
     }
   }
 }
