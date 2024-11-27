@@ -27,11 +27,21 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchUserData() async {
     try {
-      // Provider를 통해 userId 가져오기
-      final userId = Provider.of<UserProvider>(context, listen: false).userId;
+      // // Provider를 통해 userId 가져오기
+      // final userId = Provider.of<UserProvider>(context, listen: false).userId;
+
+      // Firebase Authentication을 통해 현재 로그인한 사용자 가져오기
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception("로그인된 사용자가 없습니다.");
+      }
+
+      // 사용자 ID
+      String userId = currentUser.uid;
 
       if (userId == null) {
         throw Exception('로그인된 사용자가 없습니다.');
+        Navigator.pushReplacementNamed(context, '/');
       }
 
       // Firebase Database에서 사용자 데이터 가져오기
