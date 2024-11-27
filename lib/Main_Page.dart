@@ -200,7 +200,7 @@ class _MainPageState extends State<MainPage> {
                                               schedule['name'],
                                               style: TextStyle(
                                                 fontSize: 14,
-                                                color: schedule['name'] == "문권"
+                                                color: schedule['isUser'] == true
                                                     ? Colors.green
                                                     : Colors.grey,
                                               ),
