@@ -7,7 +7,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:provider/provider.dart';
 import 'user_provider.dart';
 import 'services/firebaseService.dart';
-import 'friendManagement_Page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
