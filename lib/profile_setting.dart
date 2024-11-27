@@ -13,7 +13,7 @@ class ProfileSetting extends StatefulWidget {
 
 class _ProfileSettingState extends State<ProfileSetting> {
   final DatabaseReference database = FirebaseDatabase.instance.ref();
-
+  bool isLoading = true; // 로딩 상태 추가
   String userId = '';
   String name = "";
   String birthDate = "2001.08.25";
@@ -25,6 +25,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
     _loadUserData();
   }
 
+  // 사용자 정보 가져오기
   Future<void> _loadUserData() async {
     try {
       // // Provider에서 userId 가져오기
@@ -37,7 +38,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
       }
 
       // 사용자 ID
-      String userId = currentUser.uid;
+      userId = currentUser.uid;
 
       if (userId.isEmpty) {
         throw Exception('로그인된 사용자가 없습니다.');
@@ -57,6 +58,10 @@ class _ProfileSettingState extends State<ProfileSetting> {
       } else {
         throw Exception('사용자 데이터를 찾을 수 없습니다.');
       }
+      // 리턴값을 다른 상태 변수에 저장하고 화면에 표시하고 싶다면 setState 사용
+      setState(() {
+        isLoading = false; // 데이터 로드 완료
+      });
     } catch (e) {
       print('오류 발생: $e');
     }
@@ -71,13 +76,13 @@ class _ProfileSettingState extends State<ProfileSetting> {
       // Firebase에 수정된 데이터 저장
       await database.child('users/$userId').update({
         'name': name,
-        'birthDate': birthDate,
-        'gender': gender,
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('프로필이 저장되었습니다.')),
       );
+
+      Navigator.pushNamed(context, '/profile');
     } catch (e) {
       print('오류 발생: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -246,6 +251,15 @@ class _ProfileSettingState extends State<ProfileSetting> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          TextButton(
+            onPressed: _saveUserData,
+            child: Text(
+              '저장',
+              style: TextStyle(color: Colors.green, fontSize: 16),
+            ),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -275,6 +289,15 @@ class _ProfileSettingState extends State<ProfileSetting> {
               value: '$birthDate / $gender',
               onTap: () => _showBirthGenderDialog(),
             ),
+            if (isLoading)
+              Container(
+                color: Colors.black.withOpacity(0.5), // 배경을 어둡게 처리
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
