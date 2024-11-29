@@ -7,6 +7,7 @@ import 'schedule_creation_page.dart';
 import 'schedule_modify_page.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'services/firebaseService.dart';
+
 // Owner information class
 class OwnerInfo {
   final String name;
@@ -36,6 +37,8 @@ class Schedule {
     required this.memo,
     required this.owner,
   });
+
+  DateTime get middleDate => startDate.add(Duration(days: (endDate.difference(startDate).inDays / 2).round()));
 }
 
 class CalendarPage extends StatefulWidget {
@@ -44,7 +47,7 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
-  bool isLoading = true; // 로딩 상태 추가
+  bool isLoading = true;
   final FirebaseService _firebaseService = FirebaseService();
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -70,26 +73,16 @@ class _CalendarPageState extends State<CalendarPage> {
 
   Future<void> _initializeData() async {
     try {
-      // 1. 사용자 및 친구 정보 가져오기
       final userAndFriends = await _firebaseService.fetchUserAndFriends();
-
-      // 2. 해당 월
       final yearMonth = DateFormat('yyyy-MM').format(DateTime.now());
-
-      // 3. calendar/{yearMonth}에 존재하는 사용자 필터링
       final filteredUsers = await _firebaseService.filterUsersInCalendar(userAndFriends, yearMonth);
-
-      // 4. 필터링된 사용자들의 tasks 가져오기
       final tasks = await _firebaseService.fetchTasksForFilteredUsers(filteredUsers, DateTime.now());
-
       print("tasks 데이터: $tasks");
     } catch (e) {
       print("오류 발생: $e");
     }
   }
 
-
-  // Load saved events
   Future<void> _loadEvents() async {
     try {
       final prefs = await _prefs;
@@ -139,7 +132,6 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  // Save events
   Future<void> _saveEvents() async {
     try {
       final prefs = await _prefs;
@@ -193,7 +185,7 @@ class _CalendarPageState extends State<CalendarPage> {
       }
       scheduleCount++;
     });
-    _saveEvents(); // setState 밖에서 호출
+    _saveEvents();
   }
 
   void _updateEvent(DateTime date, Schedule updatedSchedule) {
@@ -205,7 +197,7 @@ class _CalendarPageState extends State<CalendarPage> {
         }
       }
     });
-    _saveEvents(); // setState 밖에서 호출
+    _saveEvents();
   }
 
   void _deleteEvent(DateTime date, String scheduleId) {
@@ -217,7 +209,7 @@ class _CalendarPageState extends State<CalendarPage> {
         }
       }
     });
-    _saveEvents(); // setState 밖에서 호출
+    _saveEvents();
   }
 
   List<TableRow> _buildCalendarRows() {
@@ -241,33 +233,24 @@ class _CalendarPageState extends State<CalendarPage> {
           onTap: () => _navigateToSchedulePage(currentDate),
           child: Container(
             height: 105,
-            padding: EdgeInsets.all(8),
-            alignment: Alignment.topCenter,
+
             child: Column(
               children: [
-                Text(
-                  '$day',
-                  style: TextStyle(
-                    color: dayOfWeek == 0 ? Colors.red : (dayOfWeek == 6 ? Colors.blue : Colors.black),
-                    fontSize: 16,
+                Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Text(
+                    '$day',
+                    style: TextStyle(
+                      color: dayOfWeek == 0 ? Colors.red : (dayOfWeek == 6 ? Colors.blue : Colors.black),
+                      fontSize: 16,
+                    ),
                   ),
                 ),
-                if (events[currentDate] != null)
-                  Container(
-                    margin: EdgeInsets.only(top: 4),
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: events[currentDate]![0].owner.color.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      events[currentDate]![0].owner.name,
-                      style: TextStyle(
-                        color: events[currentDate]![0].owner.color,
-                        fontSize: 12,
-                      ),
-                    ),
+                Expanded(
+                  child: Column(
+                    children: _buildEventWidgets(currentDate),
                   ),
+                ),
               ],
             ),
           ),
@@ -290,13 +273,78 @@ class _CalendarPageState extends State<CalendarPage> {
     return rows;
   }
 
+  List<Widget> _buildEventWidgets(DateTime currentDate) {
+    List<Widget> eventWidgets = [];
+    Map<String, Schedule> displayedEvents = {};
+
+    events.entries.forEach((entry) {
+      entry.value.forEach((schedule) {
+        if (currentDate.isAtSameMomentAs(schedule.startDate) ||
+            currentDate.isAtSameMomentAs(schedule.endDate) ||
+            (currentDate.isAfter(schedule.startDate) &&
+                currentDate.isBefore(schedule.endDate))) {
+          if (!displayedEvents.containsKey(schedule.id)) {
+            displayedEvents[schedule.id] = schedule;
+          }
+        }
+      });
+    });
+
+    displayedEvents.values.forEach((schedule) {
+      bool isStart = currentDate.isAtSameMomentAs(schedule.startDate);
+      bool isEnd = currentDate.isAtSameMomentAs(schedule.endDate);
+      bool isMiddle = currentDate.isAtSameMomentAs(schedule.middleDate);
+
+      eventWidgets.add(
+        Container(
+          height: 24,
+          decoration: BoxDecoration(
+            color: schedule.owner.color.withOpacity(0.2),
+            border: Border(
+              left: isStart ? BorderSide.none : BorderSide(width: 0.5, color: schedule.owner.color.withOpacity(0.2)),
+              right: isEnd ? BorderSide.none : BorderSide(width: 0.5, color: schedule.owner.color.withOpacity(0.2)),
+            ),
+            borderRadius: BorderRadius.horizontal(
+              left: isStart ? Radius.circular(4) : Radius.zero,
+              right: isEnd ? Radius.circular(4) : Radius.zero,
+            ),
+          ),
+          child: isMiddle
+              ? Center(
+            child: Text(
+              schedule.owner.name,
+              style: TextStyle(
+                color: schedule.owner.color,
+                fontSize: 12,
+              ),
+            ),
+          )
+              : null,
+        ),
+      );
+    });
+
+    return eventWidgets;
+  }
+
   void _navigateToSchedulePage(DateTime selectedDate) async {
-    if (events[selectedDate] != null && events[selectedDate]!.isNotEmpty) {
+    // 선택한 날짜가 포함된 모든 일정 찾기
+    List<Schedule> relatedSchedules = events.values
+        .expand((schedules) => schedules)
+        .where((schedule) =>
+    (selectedDate.isAtSameMomentAs(schedule.startDate) ||
+        selectedDate.isAtSameMomentAs(schedule.endDate) ||
+        (selectedDate.isAfter(schedule.startDate) &&
+            selectedDate.isBefore(schedule.endDate))))
+        .toList();
+
+    if (relatedSchedules.isNotEmpty) {
+      // 관련 일정이 있다면 첫 번째 일정으로 수정 페이지 열기
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ScheduleModifyPage(
-            schedule: events[selectedDate]![0],
+            schedule: relatedSchedules[0],
             selectedDate: selectedDate,
           ),
         ),
@@ -304,12 +352,29 @@ class _CalendarPageState extends State<CalendarPage> {
 
       if (result != null) {
         if (result is Schedule) {
-          _updateEvent(selectedDate, result);
+          // 일정 수정 시 관련된 모든 날짜의 일정 업데이트
+          events.forEach((date, schedules) {
+            for (int i = 0; i < schedules.length; i++) {
+              if (schedules[i].id == result.id) {
+                events[date]![i] = result;
+              }
+            }
+          });
+          _saveEvents();
         } else if (result == 'delete') {
-          _deleteEvent(selectedDate, events[selectedDate]![0].id);
+          setState(() {
+            // 일정 삭제 시 관련된 모든 날짜의 일정 삭제
+            events.removeWhere((date, schedules) =>
+                schedules.any((schedule) => schedule.id == relatedSchedules[0].id));
+            // 전체 스케줄 카운트 감소
+            scheduleCount--;
+          });
+          // 삭제된 일정 저장
+          _saveEvents();
         }
       }
     } else {
+      // 관련 일정이 없으면 새 일정 생성
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
