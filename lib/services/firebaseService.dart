@@ -267,20 +267,45 @@ class FirebaseService {
     }
   }
 
-  // 캘린더 페이지 삭제 연동
-  Future<void> deleteTaskFromFirebase(String scheduleId, DateTime date) async {
-    String userId = getCurrentUserId();
+  Future<void> deleteTaskFromFirebase(String scheduleId, DateTime startDate) async {
+    String userId = getCurrentUserId(); // 현재 사용자 ID 가져오기
     try {
+      // StartDate의 연월 추출
+      String yearMonth = DateFormat('yyyy-MM').format(startDate);
+
       // StartDate의 날짜만 추출
-      String formattedDate = DateFormat('yyyy-MM-dd').format(date);
+      String formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
 
-      // Firebase 경로에서 해당 데이터를 삭제
-      await database.child("tasks/$userId/$formattedDate").remove();
+      // 1. 시작 날짜의 일정 삭제
+      await database.child("tasks/$userId/$formattedStartDate").remove();
 
-      print("Task 삭제 성공: Schedule ID = $scheduleId, Date = $formattedDate");
+      // 2. 해당 달의 남은 일정 확인
+      DataSnapshot remainingTasksSnapshot = await database.child("tasks/$userId").get();
+
+      bool hasRemainingTasksInMonth = false;
+
+      if (remainingTasksSnapshot.exists && remainingTasksSnapshot.value is Map) {
+        // value를 Map으로 변환하여 처리
+        Map<dynamic, dynamic> tasks = remainingTasksSnapshot.value as Map<dynamic, dynamic>;
+        tasks.forEach((key, value) {
+          // 해당 월에 일정이 있는지 확인
+          if (key.startsWith(yearMonth)) {
+            hasRemainingTasksInMonth = true;
+          }
+        });
+      }
+
+      // 3. 해당 월에 일정이 없다면 calendar/{yearMonth}/{userId} 삭제
+      if (!hasRemainingTasksInMonth) {
+        await database.child("calendar/$yearMonth/$userId").remove(); // 노드 삭제
+        print("calendar/$yearMonth/$userId 삭제 완료");
+      }
+
+      print("Task 삭제 성공: Schedule ID = $scheduleId, Start Date = $formattedStartDate");
     } catch (e) {
       print("Task 삭제 중 오류 발생: $e");
     }
   }
+
 
 }
