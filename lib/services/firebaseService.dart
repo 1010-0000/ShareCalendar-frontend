@@ -197,6 +197,10 @@ class FirebaseService {
       // StartDate의 날짜만 추출
       String formattedDate = DateFormat('yyyy-MM-dd').format(schedule.startDate);
 
+      // calendar 노드에 해당 달에 유저 정보가 없었으면 추가하기 위한
+      String yearMonth = DateFormat('yyyy-MM').format(schedule.startDate);
+
+
       // Firebase에 저장할 데이터 구조 생성
       Map<String, dynamic> taskData = {
         "title": schedule.title,
@@ -219,7 +223,8 @@ class FirebaseService {
           .child("tasks/$userId/$formattedDate")
           .set(taskData);
 
-
+      // calendar/{yearMonth}/{userId} 업데이트
+      await database.child("calendar/$yearMonth/$userId").set(true);
 
       print("Task 저장 성공: $taskData");
     } catch (e) {
