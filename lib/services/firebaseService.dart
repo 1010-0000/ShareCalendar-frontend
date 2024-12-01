@@ -88,68 +88,6 @@ class FirebaseService {
     }
   }
 
-  // /// 필터링된 사용자 ID에 따라 tasks 데이터 가져오기
-  // Future<List<Map<String, dynamic>>> fetchTasksForFilteredUsers(
-  //     List<Map<String, dynamic>> filteredUsers, DateTime selectedDate) async {
-  //   List<Map<String, dynamic>> result = [];
-  //
-  //   // 날짜를 'yyyy-MM-dd' 형식으로 포맷팅
-  //   String formattedDate = DateFormat('yyyy-MM-dd').format(selectedDate);
-  //
-  //   for (var user in filteredUsers) {
-  //     String userId = user['userId'];
-  //
-  //     Map<String, dynamic> userInfo = {
-  //       "userId": userId,
-  //       "name": user['name'],
-  //       "isUser" : user['isUser'],
-  //     };
-  //
-  //     try {
-  //       // Firebase에서 해당 사용자의 tasks 데이터 가져오기
-  //       DataSnapshot tasksSnapshot =
-  //       await database.child("tasks/$userId/$formattedDate").get();
-  //
-  //       if (tasksSnapshot.exists) {
-  //         // Map<dynamic, dynamic> taskData = tasksSnapshot.value as Map<dynamic, dynamic>;
-  //
-  //         // result.add({
-  //         //   ...userInfo,
-  //         //   "memo": taskData["memo"] ?? "",
-  //         //   "startTime": taskData["startTime"] ?? "",
-  //         //   "title": taskData["title"] ?? "",
-  //         //
-  //         // });
-  //
-  //         final dynamic taskData = tasksSnapshot.value;
-  //
-  //         // taskData가 Map인지 확인
-  //         if (taskData is Map<dynamic, dynamic>) {
-  //           result.add({
-  //             ...userInfo,
-  //             "title": taskData["title"] ?? "",
-  //             "memo": taskData["memo"] ?? "",
-  //             "startDate": taskData["startDate"] ?? "",
-  //             "endDate": taskData["endDate"] ?? "",
-  //             "startTime": taskData["startTime"] != null
-  //                 ? "${taskData["startTime"]["hour"].toString().padLeft(2, '0')}:${taskData["startTime"]["minute"].toString().padLeft(2, '0')}"
-  //                 : "",
-  //             "endTime": taskData["endTime"] != null
-  //                 ? "${taskData["endTime"]["hour"].toString().padLeft(2, '0')}:${taskData["endTime"]["minute"].toString().padLeft(2, '0')}"
-  //                 : "",
-  //           });
-  //         } else {
-  //           print("잘못된 데이터 형식 (userId: $userId): $taskData");
-  //         }
-  //       }
-  //     } catch (e) {
-  //       print("오류 발생 (userId: $userId): $e");
-  //     }
-  //   }
-  //
-  //   return result;
-  // }
-
   Future<List<Map<String, dynamic>>> fetchTasksForFilteredUsers(
       List<Map<String, dynamic>> filteredUsers, DateTime selectedMonth) async {
     List<Map<String, dynamic>> result = [];
@@ -250,6 +188,8 @@ class FirebaseService {
     }
   }
 
+
+  // 캘린더 페이지 할일 추가
   Future<void> saveTaskToFirebase(Schedule schedule) async {
     String userId = getCurrentUserId();
     try {
@@ -286,4 +226,56 @@ class FirebaseService {
       print("Task 저장 중 오류 발생: $e");
     }
   }
+
+  // 캘린더 페이지 할일 수정
+  Future<void> updateTaskInFirebase(Schedule updatedSchedule) async {
+    String userId = getCurrentUserId();
+    try {
+      // StartDate의 날짜만 추출
+      String formattedDate = DateFormat('yyyy-MM-dd').format(updatedSchedule.startDate);
+
+      // Firebase에 저장할 데이터 구조 생성
+      Map<String, dynamic> updatedTaskData = {
+        "title": updatedSchedule.title,
+        "memo": updatedSchedule.memo,
+        "startDate": updatedSchedule.startDate.toIso8601String(),
+        "endDate": updatedSchedule.endDate.toIso8601String(),
+        "startTime": {
+          "hour": updatedSchedule.startTime?.hour ?? 0,
+          "minute": updatedSchedule.startTime?.minute ?? 0,
+        },
+        "endTime": {
+          "hour": updatedSchedule.endTime?.hour ?? 0,
+          "minute": updatedSchedule.endTime?.minute ?? 0,
+        },
+      };
+
+      // 기존 데이터를 삭제
+      await database.child("tasks/$userId/$formattedDate").remove();
+
+      // 업데이트된 데이터를 다시 저장
+      await database.child("tasks/$userId/$formattedDate").set(updatedTaskData);
+
+      print("Task 업데이트 성공: $updatedTaskData");
+    } catch (e) {
+      print("Task 업데이트 중 오류 발생: $e");
+    }
+  }
+
+  // 캘린더 페이지 삭제 연동
+  Future<void> deleteTaskFromFirebase(String scheduleId, DateTime date) async {
+    String userId = getCurrentUserId();
+    try {
+      // StartDate의 날짜만 추출
+      String formattedDate = DateFormat('yyyy-MM-dd').format(date);
+
+      // Firebase 경로에서 해당 데이터를 삭제
+      await database.child("tasks/$userId/$formattedDate").remove();
+
+      print("Task 삭제 성공: Schedule ID = $scheduleId, Date = $formattedDate");
+    } catch (e) {
+      print("Task 삭제 중 오류 발생: $e");
+    }
+  }
+
 }

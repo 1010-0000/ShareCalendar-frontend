@@ -93,7 +93,7 @@ class _CalendarPageState extends State<CalendarPage> {
     try {
       // tasks 데이터를 가져옴
       final tasks = await _initializeData();
-      print("tasks 데이터: $tasks");
+      // print("tasks 데이터: $tasks");
       setState(() {
         events = {}; // 기존 events 초기화
 
@@ -206,7 +206,7 @@ class _CalendarPageState extends State<CalendarPage> {
     _saveEvents();
   }
 
-  void _updateEvent(Schedule updatedSchedule) {
+  void _updateEvent(Schedule updatedSchedule) async {
     setState(() {
       // 기존 일정을 모든 날짜에서 완전히 제거
       events.forEach((date, schedules) {
@@ -229,20 +229,43 @@ class _CalendarPageState extends State<CalendarPage> {
         }
       }
     });
+
+    // Firebase에 업데이트
+    await _firebaseService.updateTaskInFirebase(updatedSchedule);
+
     _saveEvents();
   }
 
-  void _deleteEvent(DateTime date, String scheduleId) {
+  // void _deleteEvent(DateTime date, String scheduleId) {
+  //   setState(() {
+  //     if (events[date] != null) {
+  //       events[date]!.removeWhere((schedule) => schedule.id == scheduleId);
+  //       if (events[date]!.isEmpty) {
+  //         events.remove(date);
+  //       }
+  //     }
+  //   });
+  //   _saveEvents();
+  // }
+
+  void _deleteEvent(DateTime date, String scheduleId) async {
     setState(() {
       if (events[date] != null) {
+        // Local state에서 이벤트 제거
         events[date]!.removeWhere((schedule) => schedule.id == scheduleId);
         if (events[date]!.isEmpty) {
           events.remove(date);
         }
       }
     });
+
+    // Firebase에서 이벤트 삭제
+    await _firebaseService.deleteTaskFromFirebase(scheduleId, date);
+
+    // 로컬 저장소 동기화
     _saveEvents();
   }
+
 
   List<TableRow> _buildCalendarRows() {
     final daysInMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0).day;
@@ -465,6 +488,10 @@ class _CalendarPageState extends State<CalendarPage> {
 
                             scheduleCount--;
                           });
+
+                          // Firebase에서 일정 삭제
+                          _deleteEvent(schedule.startDate, schedule.id); // Firebase 연동
+
                           _saveEvents();
                           // 다이얼로그 닫기
                           Navigator.of(context).pop();
