@@ -16,7 +16,6 @@ class OwnerInfo {
   const OwnerInfo({required this.name, required this.color});
 }
 
-// Schedule data model
 class Schedule {
   final String id;
   final String title;
@@ -26,6 +25,7 @@ class Schedule {
   final TimeOfDay? endTime;
   final String memo;
   final OwnerInfo owner;
+  final List<DateTime> includedDates; // 포함된 날짜 리스트
 
   Schedule({
     required this.id,
@@ -36,9 +36,14 @@ class Schedule {
     this.endTime,
     required this.memo,
     required this.owner,
-  });
+  }) : includedDates = List.generate(
+    endDate.difference(startDate).inDays + 1,
+        (index) => startDate.add(Duration(days: index)),
+  ); // 포함된 날짜 자동 생성
 
-  DateTime get middleDate => startDate.add(Duration(days: (endDate.difference(startDate).inDays / 2).round()));
+  DateTime get middleDate {
+    return startDate.add(Duration(days: (endDate.difference(startDate).inDays / 2).round()));
+  }
 }
 
 class CalendarPage extends StatefulWidget {
@@ -178,15 +183,43 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void _addEvent(DateTime date, Schedule schedule) {
     setState(() {
-      if (events[date] == null) {
-        events[date] = [schedule];
+      // 중복 날짜를 확인하고 기존 일정을 아래로 배치
+      bool hasOverlap = false;
+
+      for (var includedDate in schedule.includedDates) {
+        // 기존 일정 중 중복된 날짜가 있는지 확인
+        if (events[includedDate]?.isNotEmpty == true) {
+          hasOverlap = true;
+          break;
+        }
+      }
+
+      // 중복된 날짜가 있는 경우
+      if (hasOverlap) {
+        // 기존 일정 아래에 새 일정 추가
+        for (var includedDate in schedule.includedDates) {
+          if (events[includedDate] == null) {
+            events[includedDate] = [schedule];
+          } else {
+            // 중복되지 않은 날짜는 추가
+            events[includedDate]!.add(schedule);
+          }
+        }
       } else {
-        events[date]!.add(schedule);
+        // 중복이 없는 경우
+        for (var includedDate in schedule.includedDates) {
+          if (events[includedDate] == null) {
+            events[includedDate] = [schedule];
+          } else if (!events[includedDate]!.any((s) => s.id == schedule.id)) {
+            events[includedDate]!.add(schedule);
+          }
+        }
       }
       scheduleCount++;
     });
     _saveEvents();
   }
+
 
   void _updateEvent(Schedule updatedSchedule) {
     setState(() {
@@ -199,20 +232,17 @@ class _CalendarPageState extends State<CalendarPage> {
       events.removeWhere((date, schedules) => schedules.isEmpty);
 
       // 새로운 날짜 범위에 일정 추가 (중복 없이)
-      int daysDifference = updatedSchedule.endDate.difference(updatedSchedule.startDate).inDays;
-      for (int i = 0; i <= daysDifference; i++) {
-        DateTime currentDate = updatedSchedule.startDate.add(Duration(days: i));
-
-        // 이미 해당 날짜에 동일한 일정이 없는 경우에만 추가
-        if (events[currentDate] == null) {
-          events[currentDate] = [updatedSchedule];
-        } else if (!events[currentDate]!.any((schedule) => schedule.id == updatedSchedule.id)) {
-          events[currentDate]!.add(updatedSchedule);
+      for (var includedDate in updatedSchedule.includedDates) {
+        if (events[includedDate] == null) {
+          events[includedDate] = [updatedSchedule];
+        } else if (!events[includedDate]!.any((schedule) => schedule.id == updatedSchedule.id)) {
+          events[includedDate]!.add(updatedSchedule);
         }
       }
     });
     _saveEvents();
   }
+
 
   void _deleteEvent(DateTime date, String scheduleId) {
     setState(() {
@@ -289,56 +319,59 @@ class _CalendarPageState extends State<CalendarPage> {
 
   List<Widget> _buildEventWidgets(DateTime currentDate) {
     List<Widget> eventWidgets = [];
-    Set<String> displayedEventIds = {}; // Set을 사용하여 중복 제거
+    Set<String> displayedEventIds = {};
 
-    events.forEach((date, scheduleList) {
-      for (var schedule in scheduleList) {
-        // 현재 날짜가 일정의 기간에 포함되는지 확인
-        bool isInSchedulePeriod =
-            currentDate.isAtSameMomentAs(schedule.startDate) ||
-                currentDate.isAtSameMomentAs(schedule.endDate) ||
-                (currentDate.isAfter(schedule.startDate) &&
-                    currentDate.isBefore(schedule.endDate));
+    // 현재 날짜에 일정이 있는 모든 스케줄을 수집
+    List<Schedule> relevantSchedules = events.entries
+        .where((entry) => entry.key == currentDate ||
+        entry.value.any((schedule) =>
+            schedule.includedDates.contains(currentDate)))
+        .expand((entry) => entry.value)
+        .toList();
 
-        // 이미 추가되지 않은 일정인 경우에만 추가
-        if (isInSchedulePeriod && !displayedEventIds.contains(schedule.id)) {
-          displayedEventIds.add(schedule.id);
+    // 스케줄을 시작 날짜 순으로 정렬
+    relevantSchedules.sort((a, b) => a.startDate.compareTo(b.startDate));
 
-          bool isStart = currentDate.isAtSameMomentAs(schedule.startDate);
-          bool isEnd = currentDate.isAtSameMomentAs(schedule.endDate);
-          bool isMiddle = currentDate.isAtSameMomentAs(schedule.middleDate);
+    for (var schedule in relevantSchedules) {
+      if (!displayedEventIds.contains(schedule.id)) {
+        displayedEventIds.add(schedule.id);
 
-          eventWidgets.add(
-            Container(
-              height: 24,
-              decoration: BoxDecoration(
-                color: schedule.owner.color.withOpacity(0.2),
-                borderRadius: BorderRadius.horizontal(
-                  left: isStart ? Radius.circular(4) : Radius.zero,
-                  right: isEnd ? Radius.circular(4) : Radius.zero,
+        // 현재 날짜가 일정의 어느 부분인지 확인
+        bool isStart = currentDate.isAtSameMomentAs(schedule.startDate);
+        bool isEnd = currentDate.isAtSameMomentAs(schedule.endDate);
+        bool isMultiDay = schedule.startDate != schedule.endDate;
+
+        eventWidgets.add(
+          Container(
+            height: 24,
+            decoration: BoxDecoration(
+              color: schedule.owner.color.withOpacity(0.2),
+              borderRadius: BorderRadius.horizontal(
+                left: (isStart || !isMultiDay) ? Radius.circular(4) : Radius.zero,
+                right: (isEnd || !isMultiDay) ? Radius.circular(4) : Radius.zero,
+              ),
+              border: Border.all(
+                color: schedule.owner.color,
+                width: isMultiDay ? 0.5 : 0,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                schedule.owner.name,
+                style: TextStyle(
+                  color: schedule.owner.color,
+                  fontSize: 12,
                 ),
               ),
-              child: isMiddle
-                  ? Center(
-                child: Text(
-                  schedule.owner.name,
-                  style: TextStyle(
-                    color: schedule.owner.color,
-                    fontSize: 12,
-                  ),
-                ),
-              )
-                  : null,
             ),
-          );
-        }
+          ),
+        );
       }
-    });
+    }
 
-    // 기존의 2개 초과 이벤트 처리 로직 유지
+    // 2개 초과 이벤트 처리 로직 유지
     int totalEvents = displayedEventIds.length;
     if (totalEvents > 2) {
-      // 기존 로직 그대로 유지
       eventWidgets = eventWidgets.take(2).toList();
       eventWidgets.add(
         Expanded(
@@ -371,6 +404,10 @@ class _CalendarPageState extends State<CalendarPage> {
 
     return eventWidgets;
   }
+
+
+
+
 
   void _navigateToSchedulePage(DateTime selectedDate) async {
     // 고유한 일정 ID를 가진 일정만 필터링
