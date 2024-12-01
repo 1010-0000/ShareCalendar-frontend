@@ -17,7 +17,7 @@ class _MainPageState extends State<MainPage> {
   late DateTime selectedDate;
   late List<DateTime> weekDays;
   final dateFormat = DateFormat('M월 d일', 'ko_KR');
-  final loggedInUser = '희찬';
+  String userName = '';
   final otherUsers = ['선준', '건우', '문권', '희찬'];
 
   @override
@@ -29,29 +29,35 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _initializeData() async {
-    setState(() {
-      isLoading = true; // 로딩 시작
-    });
     try {
+      // FirebaseService의 getUserData 호출
+      final userData = await _firebaseService.getUserNameEmail();
+      setState(() {
+        userName = userData['name'].toString();
+        isLoading = false;
+      });
+
       // 1. 사용자 및 친구 정보 가져오기
       final userAndFriends = await _firebaseService.fetchUserAndFriends();
       print("${userAndFriends}");
       // 4. 필터링된 사용자들의 tasks 가져오기
-      final tasks = await _firebaseService.fetchTasksForFilteredUsers(userAndFriends, selectedDate);
+      final tasks = await _firebaseService.fetchTasksForFilteredUsers(
+          userAndFriends, selectedDate);
 
       print("tasks 데이터: $tasks");
 
       // 리턴값을 다른 상태 변수에 저장하고 화면에 표시하고 싶다면 setState 사용
-          setState(() {
-            // 예: _userData = userAndFriends;
-            _tasksByUser = tasks;
-            isLoading = false; // 데이터 로드 완료
-          });
-
-          // print("초기화 완료 ${_tasksByUser}");
+      setState(() {
+        // 예: _userData = userAndFriends;
+        _tasksByUser = tasks;
+        isLoading = false; // 데이터 로드 완료
+      });
 
     } catch (e) {
-      print("오류 발생: $e");
+      print('오류 발생: $e');
+      setState(() {
+        userName = "오류";
+      });
     }
   }
 
@@ -64,29 +70,6 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     final currentDate = dateFormat.format(selectedDate);
 
-    // 일정 데이터 (백엔드 없이 하드코딩)
-    // final schedules = [
-    //   {
-    //     'date': DateTime.now(),
-    //     'title': '친구 만나기',
-    //     'time': '09:30 - 11:00',
-    //     'owner': '선준',
-    //   },
-    //   {
-    //     'date': DateTime.now(),
-    //     'title': '장보기',
-    //     'time': '10:00 - 12:00',
-    //     'owner': loggedInUser,
-    //   },
-    //   {
-    //     'date': DateTime.now(),
-    //     'title': '운동하기',
-    //     'time': '15:00 - 16:00',
-    //     'owner': '건우',
-    //   },
-    // ];
-
-
     return Scaffold(
       backgroundColor: const Color(0xFFF0FFF0),
       body: SafeArea(
@@ -96,7 +79,7 @@ class _MainPageState extends State<MainPage> {
               children: [
                 // Welcome Header
                 Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 30.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -107,18 +90,18 @@ class _MainPageState extends State<MainPage> {
                           color: Colors.grey,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
                           const CircleAvatar(
                             backgroundColor: Colors.white,
-                            radius: 25,
+                            radius: 30,
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 16),
                           Text(
-                            loggedInUser,
+                            userName,
                             style: const TextStyle(
-                              fontSize: 24,
+                              fontSize: 28,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -130,97 +113,25 @@ class _MainPageState extends State<MainPage> {
 
                 // Date Card
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   child: Card(
-                    elevation: 0,
+                    elevation: 2,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(20.0),
+                      padding: const EdgeInsets.all(24.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             currentDate,
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            loggedInUser,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-
-                          // 일정 표시
-                          ..._tasksByUser
-                            .map((schedule) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4.0),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.calendar_today,
-                                    color: Colors.green,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          schedule['title'],
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              "10:00 - 12:00",
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              schedule['name'],
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: schedule['isUser'] == true
-                                                    ? Colors.green
-                                                    : Colors.grey,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          )).toList(),
-
-                          if (_tasksByUser.isEmpty)
-                            const Text(
-                              '일정 없음',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
-
-                          const SizedBox(height: 20),
-
+                          const SizedBox(height: 16),
                           // Week Calendar
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -234,7 +145,7 @@ class _MainPageState extends State<MainPage> {
                                 _initializeData(); // 새로운 날짜에 해당하는 데이터 로드
                               },
                               child: CircleAvatar(
-                                radius: 20,
+                                radius: 24,
                                 backgroundColor: date.year == selectedDate.year &&
                                     date.month == selectedDate.month &&
                                     date.day == selectedDate.day
@@ -248,13 +159,77 @@ class _MainPageState extends State<MainPage> {
                                         date.day == selectedDate.day
                                         ? Colors.white
                                         : Colors.black,
-                                    fontSize: 16,
+                                    fontSize: 18,
                                   ),
                                 ),
                               ),
                             ))
                                 .toList(),
                           ),
+                          const SizedBox(height: 16),
+                          Text(
+                            userName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey,
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+                          // 일정 표시
+                          if (_tasksByUser.isNotEmpty)
+                            Column(
+                              children: _tasksByUser
+                                  .map((schedule) => Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_today,
+                                      color: Colors.green,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            schedule['title'],
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            schedule['name'],
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: schedule['isUser'] == true
+                                                  ? Colors.green
+                                                  : Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )).toList(),
+                            ),
+
+                          if (_tasksByUser.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12.0),
+                              child: Text(
+                                '일정 없음',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -262,25 +237,25 @@ class _MainPageState extends State<MainPage> {
                 ),
 
                 const Spacer(),
-                BottomIcons(),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: BottomIcons(),
+                ),
               ],
             ),
 
             if (isLoading)
               Container(
-                color: Colors.black.withOpacity(0.5), // 배경을 어둡게 처리
+                color: Colors.black.withOpacity(0.5),
                 child: const Center(
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 ),
               ),
-
-
           ],
         ),
       ),
     );
   }
 }
-
