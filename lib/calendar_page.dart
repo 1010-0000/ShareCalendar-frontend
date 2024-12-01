@@ -188,12 +188,26 @@ class _CalendarPageState extends State<CalendarPage> {
     _saveEvents();
   }
 
-  void _updateEvent(DateTime date, Schedule updatedSchedule) {
+  void _updateEvent(Schedule updatedSchedule) {
     setState(() {
-      if (events[date] != null) {
-        int index = events[date]!.indexWhere((schedule) => schedule.id == updatedSchedule.id);
-        if (index != -1) {
-          events[date]![index] = updatedSchedule;
+      // 기존 일정을 모든 날짜에서 완전히 제거
+      events.forEach((date, schedules) {
+        schedules.removeWhere((schedule) => schedule.id == updatedSchedule.id);
+      });
+
+      // 빈 리스트를 가진 날짜 제거
+      events.removeWhere((date, schedules) => schedules.isEmpty);
+
+      // 새로운 날짜 범위에 일정 추가 (중복 없이)
+      int daysDifference = updatedSchedule.endDate.difference(updatedSchedule.startDate).inDays;
+      for (int i = 0; i <= daysDifference; i++) {
+        DateTime currentDate = updatedSchedule.startDate.add(Duration(days: i));
+
+        // 이미 해당 날짜에 동일한 일정이 없는 경우에만 추가
+        if (events[currentDate] == null) {
+          events[currentDate] = [updatedSchedule];
+        } else if (!events[currentDate]!.any((schedule) => schedule.id == updatedSchedule.id)) {
+          events[currentDate]!.add(updatedSchedule);
         }
       }
     });
@@ -275,106 +289,194 @@ class _CalendarPageState extends State<CalendarPage> {
 
   List<Widget> _buildEventWidgets(DateTime currentDate) {
     List<Widget> eventWidgets = [];
-    Map<String, Schedule> displayedEvents = {};
+    Set<String> displayedEventIds = {}; // Set을 사용하여 중복 제거
 
-    events.entries.forEach((entry) {
-      entry.value.forEach((schedule) {
-        if (currentDate.isAtSameMomentAs(schedule.startDate) ||
-            currentDate.isAtSameMomentAs(schedule.endDate) ||
-            (currentDate.isAfter(schedule.startDate) &&
-                currentDate.isBefore(schedule.endDate))) {
-          if (!displayedEvents.containsKey(schedule.id)) {
-            displayedEvents[schedule.id] = schedule;
-          }
+    events.forEach((date, scheduleList) {
+      for (var schedule in scheduleList) {
+        // 현재 날짜가 일정의 기간에 포함되는지 확인
+        bool isInSchedulePeriod =
+            currentDate.isAtSameMomentAs(schedule.startDate) ||
+                currentDate.isAtSameMomentAs(schedule.endDate) ||
+                (currentDate.isAfter(schedule.startDate) &&
+                    currentDate.isBefore(schedule.endDate));
+
+        // 이미 추가되지 않은 일정인 경우에만 추가
+        if (isInSchedulePeriod && !displayedEventIds.contains(schedule.id)) {
+          displayedEventIds.add(schedule.id);
+
+          bool isStart = currentDate.isAtSameMomentAs(schedule.startDate);
+          bool isEnd = currentDate.isAtSameMomentAs(schedule.endDate);
+          bool isMiddle = currentDate.isAtSameMomentAs(schedule.middleDate);
+
+          eventWidgets.add(
+            Container(
+              height: 24,
+              decoration: BoxDecoration(
+                color: schedule.owner.color.withOpacity(0.2),
+                borderRadius: BorderRadius.horizontal(
+                  left: isStart ? Radius.circular(4) : Radius.zero,
+                  right: isEnd ? Radius.circular(4) : Radius.zero,
+                ),
+              ),
+              child: isMiddle
+                  ? Center(
+                child: Text(
+                  schedule.owner.name,
+                  style: TextStyle(
+                    color: schedule.owner.color,
+                    fontSize: 12,
+                  ),
+                ),
+              )
+                  : null,
+            ),
+          );
         }
-      });
+      }
     });
 
-    displayedEvents.values.forEach((schedule) {
-      bool isStart = currentDate.isAtSameMomentAs(schedule.startDate);
-      bool isEnd = currentDate.isAtSameMomentAs(schedule.endDate);
-      bool isMiddle = currentDate.isAtSameMomentAs(schedule.middleDate);
-
+    // 기존의 2개 초과 이벤트 처리 로직 유지
+    int totalEvents = displayedEventIds.length;
+    if (totalEvents > 2) {
+      // 기존 로직 그대로 유지
+      eventWidgets = eventWidgets.take(2).toList();
       eventWidgets.add(
-        Container(
-          height: 24,
-          decoration: BoxDecoration(
-            color: schedule.owner.color.withOpacity(0.2),
-            border: Border(
-              left: isStart ? BorderSide.none : BorderSide(width: 0.5, color: schedule.owner.color.withOpacity(0.2)),
-              right: isEnd ? BorderSide.none : BorderSide(width: 0.5, color: schedule.owner.color.withOpacity(0.2)),
-            ),
-            borderRadius: BorderRadius.horizontal(
-              left: isStart ? Radius.circular(4) : Radius.zero,
-              right: isEnd ? Radius.circular(4) : Radius.zero,
-            ),
-          ),
-          child: isMiddle
-              ? Center(
-            child: Text(
-              schedule.owner.name,
-              style: TextStyle(
-                color: schedule.owner.color,
-                fontSize: 12,
+        Expanded(
+          child: Container(
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.2),
+              borderRadius: BorderRadius.horizontal(
+                left: Radius.circular(4),
+                right: Radius.circular(4),
               ),
             ),
-          )
-              : null,
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '+${totalEvents - 2}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
         ),
       );
-    });
+    }
 
     return eventWidgets;
   }
 
   void _navigateToSchedulePage(DateTime selectedDate) async {
-    // 선택한 날짜가 포함된 모든 일정 찾기
+    // 고유한 일정 ID를 가진 일정만 필터링
+    Set<String> uniqueScheduleIds = Set();
     List<Schedule> relatedSchedules = events.values
         .expand((schedules) => schedules)
         .where((schedule) =>
     (selectedDate.isAtSameMomentAs(schedule.startDate) ||
         selectedDate.isAtSameMomentAs(schedule.endDate) ||
         (selectedDate.isAfter(schedule.startDate) &&
-            selectedDate.isBefore(schedule.endDate))))
+            selectedDate.isBefore(schedule.endDate))) &&
+        uniqueScheduleIds.add(schedule.id))
         .toList();
 
     if (relatedSchedules.isNotEmpty) {
-      // 관련 일정이 있다면 첫 번째 일정으로 수정 페이지 열기
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ScheduleModifyPage(
-            schedule: relatedSchedules[0],
-            selectedDate: selectedDate,
-          ),
-        ),
-      );
+      // 일정이 있는 날짜를 클릭했을 때 다이얼로그 표시
+      final result = await showDialog<String>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('일정 생성 및 수정 선택'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: relatedSchedules.map((schedule) {
+                  return ListTile(
+                    title: Text(schedule.title),
+                    subtitle: Text('${schedule.owner.name}'),
+                    trailing: Text(
+                      '${schedule.startTime != null ?
+                      DateFormat('HH:mm').format(DateTime(2024, 1, 1, schedule.startTime!.hour, schedule.startTime!.minute)) :
+                      '시작 시간 없음'} - '
+                          '${schedule.endTime != null ?
+                      DateFormat('HH:mm').format(DateTime(2024, 1, 1, schedule.endTime!.hour, schedule.endTime!.minute)) :
+                      '종료 시간 없음'}',
+                    ),
+                    onTap: () async {
+                      // 개별 일정 수정 기능 추가
+                      final modifyResult = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ScheduleModifyPage(
+                            schedule: schedule,
+                            selectedDate: selectedDate,
+                          ),
+                        ),
+                      );
 
-      if (result != null) {
-        if (result is Schedule) {
-          // 일정 수정 시 관련된 모든 날짜의 일정 업데이트
-          events.forEach((date, schedules) {
-            for (int i = 0; i < schedules.length; i++) {
-              if (schedules[i].id == result.id) {
-                events[date]![i] = result;
-              }
-            }
-          });
-          _saveEvents();
-        } else if (result == 'delete') {
-          setState(() {
-            // 일정 삭제 시 관련된 모든 날짜의 일정 삭제
-            events.removeWhere((date, schedules) =>
-                schedules.any((schedule) => schedule.id == relatedSchedules[0].id));
-            // 전체 스케줄 카운트 감소
-            scheduleCount--;
-          });
-          // 삭제된 일정 저장
-          _saveEvents();
-        }
-      }
+                      if (modifyResult != null) {
+                        if (modifyResult is Schedule) {
+                          _updateEvent(modifyResult);
+                          // 다이얼로그 닫기
+                          Navigator.of(context).pop();
+                        } else if (modifyResult == 'delete') {
+                          setState(() {
+                            events.forEach((date, schedules) {
+                              schedules.removeWhere((s) => s.id == schedule.id);
+                            });
+
+                            // 비어있는 날짜 제거
+                            events.removeWhere((date, schedules) => schedules.isEmpty);
+
+                            scheduleCount--;
+                          });
+                          _saveEvents();
+                          // 다이얼로그 닫기
+                          Navigator.of(context).pop();
+                        }
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: Text('새 일정 생성'),
+                onPressed: () async {
+                  // 새 일정 생성 페이지로 이동
+                  final createResult = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ScheduleCreatePage(
+                        selectedDate: selectedDate,
+                        owner: getNextOwner(),
+                      ),
+                    ),
+                  );
+
+                  if (createResult != null && createResult is Schedule) {
+                    _addEvent(selectedDate, createResult);
+                    // 다이얼로그 닫기
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              TextButton(
+                child: Text('닫기'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          );
+        },
+      );
     } else {
-      // 관련 일정이 없으면 새 일정 생성
+      // 일정이 없는 날짜의 기존 로직
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
@@ -578,4 +680,3 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
     );
   }
 }
-
