@@ -22,6 +22,31 @@ class FirebaseService {
     return currentUser.uid;
   }
 
+  Future<Map<String, String>> getUserNameAndColor() async {
+    try {
+      String userId = getCurrentUserId();
+      // Firebase에서 현재 사용자의 데이터 가져오기
+      DataSnapshot userSnapshot = await database.child("users/$userId").get();
+
+      if (userSnapshot.exists) {
+        Map<String, dynamic> userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+        return {
+          "name": userData["name"] ?? "사용자 이름 없음",
+          "color": userData["color"] ?? "#000000", // 기본값은 검정색
+        };
+      } else {
+        throw Exception("사용자 데이터를 찾을 수 없습니다.");
+      }
+    } catch (e) {
+      print("사용자 이름 및 색상 가져오기 중 오류 발생: $e");
+      return {
+        "name": "오류 발생",
+        "color": "#000000", // 기본값은 검정색
+      };
+    }
+  }
+
+
   /// 로그인한 사용자 정보와 친구 목록 가져오기
   Future<List<Map<String, dynamic>>> fetchUserAndFriends() async {
     // 사용자 ID 가져오기
@@ -42,6 +67,7 @@ class FirebaseService {
       "userId": userId,
       "name": userData["name"],
       "isUser": true,
+      "color": userData["color"] ?? "#000000", // 기본값은 검정색
     });
 
     // 2. 친구 목록 가져오기
@@ -57,6 +83,7 @@ class FirebaseService {
           "userId": friendId,
           "name": friendData["name"],
           "isUser": false,
+          "color": friendData["color"] ?? "#000000", // 기본값은 검정색
         });
       }
     }
@@ -102,6 +129,7 @@ class FirebaseService {
         "userId": userId,
         "name": user['name'],
         "isUser": user['isUser'],
+        "color": user['color'], // 색상 정보 추가
       };
 
       try {

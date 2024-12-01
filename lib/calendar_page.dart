@@ -47,28 +47,38 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
-  bool isLoading = true;
+  bool isLoading = true; // 로딩 상태 관리
   final FirebaseService _firebaseService = FirebaseService();
-  DateTime _focusedDay = DateTime.now().subtract(Duration(days: 4));
+  // DateTime _focusedDay = DateTime.now().subtract(Duration(days: 4));
+  DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   bool _showYearMonthPicker = false;
   Map<DateTime, List<Schedule>> events = {};
   int scheduleCount = 0;
   static const String EVENTS_STORAGE_KEY = 'calendar_events';
-
-  final List<OwnerInfo> owners = [
-    OwnerInfo(name: '문권', color: Colors.purple),
-    OwnerInfo(name: '선준', color: Colors.red),
-  ];
-
+  String userName = ""; // 사용자 이름 저장
+  Color userColor = Colors.green; // 사용자 색상 저장 (기본값)
   late Future<SharedPreferences> _prefs;
 
   @override
   void initState() {
     super.initState();
     _prefs = SharedPreferences.getInstance();
+    _loadUserData(); // 사용자 데이터 로드
     _loadEvents();
-    // _initializeData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      // 사용자 이름 및 색상 로드
+      final userInfo = await _firebaseService.getUserNameAndColor();
+      setState(() {
+        userName = userInfo['name'] ?? '사용자';
+        userColor = Color(int.parse(userInfo['color']!.replaceFirst('#', '0xFF')));
+      });
+    } catch (e) {
+      print("사용자 데이터 로드 중 오류: $e");
+    }
   }
 
   Future<List<Map<String, dynamic>>> _initializeData() async {
@@ -76,10 +86,10 @@ class _CalendarPageState extends State<CalendarPage> {
       final userAndFriends = await _firebaseService.fetchUserAndFriends();
       // print("$userAndFriends");
 
-      final yearMonth = DateFormat('yyyy-MM').format(DateTime.now().subtract(Duration(days: 4)));
+      final yearMonth = DateFormat('yyyy-MM').format(_focusedDay);
       final filteredUsers = await _firebaseService.filterUsersInCalendar(userAndFriends, yearMonth);
 
-      final tasks = await _firebaseService.fetchTasksForFilteredUsers(filteredUsers, DateTime.now().subtract(Duration(days: 4)));
+      final tasks = await _firebaseService.fetchTasksForFilteredUsers(filteredUsers, _focusedDay);
 
       // print("tasks 데이터: $tasks");
       return tasks;
@@ -90,6 +100,9 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> _loadEvents() async {
+    setState(() {
+      isLoading = true; // 로딩 시작
+    });
     try {
       // tasks 데이터를 가져옴
       final tasks = await _initializeData();
@@ -123,7 +136,7 @@ class _CalendarPageState extends State<CalendarPage> {
             memo: task["memo"],
             owner: OwnerInfo(
               name: task["name"],
-              color: task["isUser"] ? Colors.green : Colors.blue,
+              color: Color(int.parse(task["color"].replaceFirst('#', '0xFF'))), // Hex color -> Color 변환
             ),
           );
           // startDate부터 endDate까지 events에 추가
@@ -140,10 +153,27 @@ class _CalendarPageState extends State<CalendarPage> {
 
         // 업데이트된 events의 총 일정 수를 계산
         scheduleCount = events.values.fold(0, (sum, list) => sum + list.length);
+
+
+        // 캘린더에 표시할 스케줄 목록 변환
+        List<Schedule> allSchedules = events.values.expand((list) => list).toList();
+
+        // 디스플레이 로직 호출
+        displayTasksOnCalendar(allSchedules);
         // print("$events");
       });
     } catch (e) {
       print('Error loading tasks: $e');
+    }finally {
+      setState(() {
+        isLoading = false; // 로딩 종료
+      });
+    }
+  }
+  void displayTasksOnCalendar(List<Schedule> schedules) {
+    for (var schedule in schedules) {
+      // 캘린더에 추가할 로직 구현
+      print("Schedule for calendar: ${schedule.title} (${schedule.owner.name})");
     }
   }
 
@@ -181,13 +211,14 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  OwnerInfo getNextOwner() {
-    return owners[scheduleCount % owners.length];
-  }
-
-  void _changeMonth(int delta) {
+  void _changeMonth(int delta) async {
     setState(() {
       _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + delta, 1);
+      isLoading = true; // 로딩 시작
+    });
+    await _loadEvents(); // 새로운 달의 데이터를 로드
+    setState(() {
+      isLoading = false; // 로딩 종료
     });
   }
 
@@ -203,7 +234,8 @@ class _CalendarPageState extends State<CalendarPage> {
 
     // Firebase에 저장
     await _firebaseService.saveTaskToFirebase(schedule);
-    _saveEvents();
+
+    _loadEvents();
   }
 
   void _updateEvent(Schedule updatedSchedule) async {
@@ -233,20 +265,8 @@ class _CalendarPageState extends State<CalendarPage> {
     // Firebase에 업데이트
     await _firebaseService.updateTaskInFirebase(updatedSchedule);
 
-    _saveEvents();
+    _loadEvents();
   }
-
-  // void _deleteEvent(DateTime date, String scheduleId) {
-  //   setState(() {
-  //     if (events[date] != null) {
-  //       events[date]!.removeWhere((schedule) => schedule.id == scheduleId);
-  //       if (events[date]!.isEmpty) {
-  //         events.remove(date);
-  //       }
-  //     }
-  //   });
-  //   _saveEvents();
-  // }
 
   void _deleteEvent(DateTime date, String scheduleId) async {
     setState(() {
@@ -262,8 +282,7 @@ class _CalendarPageState extends State<CalendarPage> {
     // Firebase에서 이벤트 삭제
     await _firebaseService.deleteTaskFromFirebase(scheduleId, date);
 
-    // 로컬 저장소 동기화
-    _saveEvents();
+    _loadEvents();
   }
 
 
@@ -431,11 +450,11 @@ class _CalendarPageState extends State<CalendarPage> {
     List<Schedule> relatedSchedules = events.values
         .expand((schedules) => schedules)
         .where((schedule) =>
-    (selectedDate.isAtSameMomentAs(schedule.startDate) ||
-        selectedDate.isAtSameMomentAs(schedule.endDate) ||
-        (selectedDate.isAfter(schedule.startDate) &&
-            selectedDate.isBefore(schedule.endDate))) &&
-        uniqueScheduleIds.add(schedule.id))
+          (selectedDate.isAtSameMomentAs(schedule.startDate) ||
+            selectedDate.isAtSameMomentAs(schedule.endDate) ||
+            (selectedDate.isAfter(schedule.startDate) &&
+              selectedDate.isBefore(schedule.endDate))) &&
+          uniqueScheduleIds.add(schedule.id))
         .toList();
 
     if (relatedSchedules.isNotEmpty) {
@@ -460,8 +479,8 @@ class _CalendarPageState extends State<CalendarPage> {
                       DateFormat('HH:mm').format(DateTime(2024, 1, 1, schedule.endTime!.hour, schedule.endTime!.minute)) :
                       '종료 시간 없음'}',
                     ),
-                    onTap: () async {
-                      // 개별 일정 수정 기능 추가
+                    onTap: schedule.owner.name == userName
+                        ? () async {
                       final modifyResult = await Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -475,29 +494,23 @@ class _CalendarPageState extends State<CalendarPage> {
                       if (modifyResult != null) {
                         if (modifyResult is Schedule) {
                           _updateEvent(modifyResult);
-                          // 다이얼로그 닫기
-                          Navigator.of(context).pop();
+                          Navigator.of(context).pop(); // 다이얼로그 닫기
                         } else if (modifyResult == 'delete') {
                           setState(() {
                             events.forEach((date, schedules) {
                               schedules.removeWhere((s) => s.id == schedule.id);
                             });
-
-                            // 비어있는 날짜 제거
                             events.removeWhere((date, schedules) => schedules.isEmpty);
-
                             scheduleCount--;
                           });
 
-                          // Firebase에서 일정 삭제
-                          _deleteEvent(schedule.startDate, schedule.id); // Firebase 연동
-
+                          _deleteEvent(schedule.startDate, schedule.id);
                           _saveEvents();
-                          // 다이얼로그 닫기
-                          Navigator.of(context).pop();
+                          Navigator.of(context).pop(); // 다이얼로그 닫기
                         }
                       }
-                    },
+                    }
+                        : null, // 사용자가 소유하지 않은 일정은 클릭 불가
                   );
                 }).toList(),
               ),
@@ -512,7 +525,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     MaterialPageRoute(
                       builder: (context) => ScheduleCreatePage(
                         selectedDate: selectedDate,
-                        owner: getNextOwner(),
+                        owner: OwnerInfo(name: userName, color: userColor),
                       ),
                     ),
                   );
@@ -539,7 +552,7 @@ class _CalendarPageState extends State<CalendarPage> {
         MaterialPageRoute(
           builder: (context) => ScheduleCreatePage(
             selectedDate: selectedDate,
-            owner: getNextOwner(),
+            owner: OwnerInfo(name: userName, color: userColor),
           ),
         ),
       );
@@ -549,7 +562,6 @@ class _CalendarPageState extends State<CalendarPage> {
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<SharedPreferences>(
@@ -559,74 +571,94 @@ class _CalendarPageState extends State<CalendarPage> {
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
+
+
           return Scaffold(
             body: SafeArea(
               child: Stack(
                 children: [
-                  Column(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.chevron_left, color: Colors.green),
-                              onPressed: () => _changeMonth(-1),
-                            ),
-                            GestureDetector(
-                              onTap: () => setState(() => _showYearMonthPicker = true),
-                              child: Text(
-                                DateFormat('yyyy년 MM월').format(_focusedDay),
-                                style: TextStyle(
+                  if (!isLoading)
+                    Column(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.chevron_left, color: Colors.green),
+                                onPressed: () => _changeMonth(-1),
+                              ),
+                              GestureDetector(
+                                onTap: () => setState(() => _showYearMonthPicker = true),
+                                child: Text(
+                                  DateFormat('yyyy년 MM월').format(_focusedDay),
+                                  style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.green
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.chevron_right, color: Colors.green),
-                              onPressed: () => _changeMonth(1),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Table(
-                          children: [
-                            TableRow(
-                              children: ['일', '월', '화', '수', '목', '금', '토'].map((day) => Container(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  day,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: day == '일' ? Colors.red : (day == '토' ? Colors.blue : Colors.black),
+                                    color: Colors.green,
                                   ),
                                 ),
-                              )).toList(),
-                            ),
-                            ..._buildCalendarRows(),
-                          ],
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.chevron_right, color: Colors.green),
+                                onPressed: () => _changeMonth(1),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      BottomIcons(),
-                    ],
-                  ),
+                        Expanded(
+                          child: Table(
+                            children: [
+                              TableRow(
+                                children: ['일', '월', '화', '수', '목', '금', '토'].map((day) => Container(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    day,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: day == '일' ? Colors.red : (day == '토' ? Colors.blue : Colors.black),
+                                    ),
+                                  ),
+                                )).toList(),
+                              ),
+                              ..._buildCalendarRows(),
+                            ],
+                          ),
+                        ),
+                        BottomIcons(),
+                      ],
+                    ),
+
                   if (_showYearMonthPicker)
                     Positioned.fill(
                       child: YearMonthPicker(
                         initialDate: _focusedDay,
-                        onSelect: (year, month) {
+                        onSelect: (year, month) async {
                           setState(() {
                             _focusedDay = DateTime(year, month, 1);
                             _showYearMonthPicker = false;
+                            isLoading = true; // 로딩 시작
+                          });
+                          await _loadEvents(); // 선택한 달의 데이터를 로드
+                          setState(() {
+                            isLoading = false; // 로딩 종료
                           });
                         },
                         onClose: () => setState(() => _showYearMonthPicker = false),
+                      ),
+                    ),
+
+                  // 로딩 오버레이 (isLoading이 true일 때만 표시)
+                  if (isLoading)
+                    Container(
+                      color: Colors.black.withOpacity(0.5), // 반투명 배경
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // 흰색 스피너
+                        ),
                       ),
                     ),
                 ],
@@ -639,6 +671,7 @@ class _CalendarPageState extends State<CalendarPage> {
       },
     );
   }
+
 }
 
 class YearMonthPicker extends StatefulWidget {
@@ -689,7 +722,10 @@ class _YearMonthPickerState extends State<YearMonthPicker> {
                     icon: Icon(Icons.chevron_left),
                     onPressed: () => setState(() => _year--),
                   ),
-                  Text('$_year년', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(
+                    '$_year년',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   IconButton(
                     icon: Icon(Icons.chevron_right),
                     onPressed: () => setState(() => _year++),
