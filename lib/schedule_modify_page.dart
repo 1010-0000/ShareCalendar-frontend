@@ -31,9 +31,17 @@ class _ScheduleModifyPageState extends State<ScheduleModifyPage> {
     super.initState();
     _titleController = TextEditingController(text: widget.schedule.title);
     _memoController = TextEditingController(text: widget.schedule.memo);
-    _startDate = widget.schedule.startDate;
+    _startDate = DateTime(
+        widget.schedule.startDate.year,
+        widget.schedule.startDate.month,
+        widget.schedule.startDate.day
+    );
     _startTime = widget.schedule.startTime;
-    _endDate = widget.schedule.endDate;
+    _endDate = DateTime(
+        widget.schedule.endDate.year,
+        widget.schedule.endDate.month,
+        widget.schedule.endDate.day
+    );
     _endTime = widget.schedule.endTime;
   }
 
