@@ -1,6 +1,7 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../calendar_page.dart';
 
 class FirebaseService {
   // 내부에서 사용할 정적 인스턴스 변수
@@ -64,6 +65,7 @@ class FirebaseService {
   }
 
   /// calendar/{yearMonth}에 존재하는 사용자 필터링
+  /// 해당 달에 있는 할일들 모두 가져오는 함수
   Future<List<Map<String, dynamic>>> filterUsersInCalendar(
       List<Map<String, dynamic>> users, String yearMonth) async {
     List<Map<String, dynamic>> filteredUsers = [];
@@ -72,13 +74,13 @@ class FirebaseService {
       for (Map<String, dynamic> user in users) {
         String userId = user['userId'];
 
+
         // calendar/{yearMonth}/{userId}가 있는지 확인
         DataSnapshot calendarSnapshot = await database.child('calendar/$yearMonth/$userId').get();
         if (calendarSnapshot.exists) {
           filteredUsers.add(user);
         }
       }
-
       return filteredUsers;
     } catch (e) {
       print("오류 발생: $e");
@@ -86,36 +88,121 @@ class FirebaseService {
     }
   }
 
-  /// 필터링된 사용자 ID에 따라 tasks 데이터 가져오기
+  // /// 필터링된 사용자 ID에 따라 tasks 데이터 가져오기
+  // Future<List<Map<String, dynamic>>> fetchTasksForFilteredUsers(
+  //     List<Map<String, dynamic>> filteredUsers, DateTime selectedDate) async {
+  //   List<Map<String, dynamic>> result = [];
+  //
+  //   // 날짜를 'yyyy-MM-dd' 형식으로 포맷팅
+  //   String formattedDate = DateFormat('yyyy-MM-dd').format(selectedDate);
+  //
+  //   for (var user in filteredUsers) {
+  //     String userId = user['userId'];
+  //
+  //     Map<String, dynamic> userInfo = {
+  //       "userId": userId,
+  //       "name": user['name'],
+  //       "isUser" : user['isUser'],
+  //     };
+  //
+  //     try {
+  //       // Firebase에서 해당 사용자의 tasks 데이터 가져오기
+  //       DataSnapshot tasksSnapshot =
+  //       await database.child("tasks/$userId/$formattedDate").get();
+  //
+  //       if (tasksSnapshot.exists) {
+  //         // Map<dynamic, dynamic> taskData = tasksSnapshot.value as Map<dynamic, dynamic>;
+  //
+  //         // result.add({
+  //         //   ...userInfo,
+  //         //   "memo": taskData["memo"] ?? "",
+  //         //   "startTime": taskData["startTime"] ?? "",
+  //         //   "title": taskData["title"] ?? "",
+  //         //
+  //         // });
+  //
+  //         final dynamic taskData = tasksSnapshot.value;
+  //
+  //         // taskData가 Map인지 확인
+  //         if (taskData is Map<dynamic, dynamic>) {
+  //           result.add({
+  //             ...userInfo,
+  //             "title": taskData["title"] ?? "",
+  //             "memo": taskData["memo"] ?? "",
+  //             "startDate": taskData["startDate"] ?? "",
+  //             "endDate": taskData["endDate"] ?? "",
+  //             "startTime": taskData["startTime"] != null
+  //                 ? "${taskData["startTime"]["hour"].toString().padLeft(2, '0')}:${taskData["startTime"]["minute"].toString().padLeft(2, '0')}"
+  //                 : "",
+  //             "endTime": taskData["endTime"] != null
+  //                 ? "${taskData["endTime"]["hour"].toString().padLeft(2, '0')}:${taskData["endTime"]["minute"].toString().padLeft(2, '0')}"
+  //                 : "",
+  //           });
+  //         } else {
+  //           print("잘못된 데이터 형식 (userId: $userId): $taskData");
+  //         }
+  //       }
+  //     } catch (e) {
+  //       print("오류 발생 (userId: $userId): $e");
+  //     }
+  //   }
+  //
+  //   return result;
+  // }
+
   Future<List<Map<String, dynamic>>> fetchTasksForFilteredUsers(
-      List<Map<String, dynamic>> filteredUsers, DateTime selectedDate) async {
+      List<Map<String, dynamic>> filteredUsers, DateTime selectedMonth) async {
     List<Map<String, dynamic>> result = [];
 
-    // 날짜를 'yyyy-MM-dd' 형식으로 포맷팅
-    String formattedDate = DateFormat('yyyy-MM-dd').format(selectedDate);
+    // 'yyyy-MM' 형식으로 선택된 월을 포맷팅
+    String formattedMonth = DateFormat('yyyy-MM').format(selectedMonth);
 
     for (var user in filteredUsers) {
       String userId = user['userId'];
+
       Map<String, dynamic> userInfo = {
         "userId": userId,
         "name": user['name'],
-        "isUser" : user['isUser'],
+        "isUser": user['isUser'],
       };
 
       try {
         // Firebase에서 해당 사용자의 tasks 데이터 가져오기
         DataSnapshot tasksSnapshot =
-        await database.child("tasks/$userId/$formattedDate").get();
+        await database.child("tasks/$userId").get();
 
         if (tasksSnapshot.exists) {
-          Map<dynamic, dynamic> taskData = tasksSnapshot.value as Map<dynamic, dynamic>;
+          // 사용자 ID 하위의 모든 데이터를 가져옴
+          final dynamic userTasks = tasksSnapshot.value;
 
-          result.add({
-            ...userInfo,
-            "memo": taskData["memo"] ?? "",
-            "startTime": taskData["startTime"] ?? "",
-            "title": taskData["title"] ?? "",
-          });
+          // userTasks가 Map인지 확인
+          if (userTasks is Map<dynamic, dynamic>) {
+            // 해당 월의 데이터 필터링
+            userTasks.forEach((dateKey, taskData) {
+              // dateKey가 해당 월의 데이터인지 확인
+              if (dateKey.startsWith(formattedMonth)) {
+                if (taskData is Map<dynamic, dynamic>) {
+                  result.add({
+                    ...userInfo,
+                    "title": taskData["title"] ?? "",
+                    "memo": taskData["memo"] ?? "",
+                    "startDate": taskData["startDate"] ?? "",
+                    "endDate": taskData["endDate"] ?? "",
+                    "startTime": taskData["startTime"] != null
+                        ? "${taskData["startTime"]["hour"].toString().padLeft(2, '0')}:${taskData["startTime"]["minute"].toString().padLeft(2, '0')}"
+                        : "",
+                    "endTime": taskData["endTime"] != null
+                        ? "${taskData["endTime"]["hour"].toString().padLeft(2, '0')}:${taskData["endTime"]["minute"].toString().padLeft(2, '0')}"
+                        : "",
+                  });
+                } else {
+                  print("잘못된 데이터 형식 (userId: $userId, dateKey: $dateKey): $taskData");
+                }
+              }
+            });
+          } else {
+            print("잘못된 데이터 형식 (userId: $userId): $userTasks");
+          }
         }
       } catch (e) {
         print("오류 발생 (userId: $userId): $e");
@@ -124,6 +211,7 @@ class FirebaseService {
 
     return result;
   }
+
 
   // 사용자의 name, email 조회
   Future<Map<String, String>> getUserNameEmail() async {
@@ -159,6 +247,43 @@ class FirebaseService {
         'name': '오류 발생',
         'email': '오류 발생',
       };
+    }
+  }
+
+  Future<void> saveTaskToFirebase(Schedule schedule) async {
+    String userId = getCurrentUserId();
+    try {
+
+      // StartDate의 날짜만 추출
+      String formattedDate = DateFormat('yyyy-MM-dd').format(schedule.startDate);
+
+      // Firebase에 저장할 데이터 구조 생성
+      Map<String, dynamic> taskData = {
+        "title": schedule.title,
+        "memo": schedule.memo,
+        "startDate": schedule.startDate.toIso8601String(),
+        "endDate": schedule.endDate.toIso8601String(),
+        "startTime": {
+          "hour": schedule.startTime?.hour ?? 0,
+          "minute": schedule.startTime?.minute ?? 0,
+        },
+        "endTime": {
+          "hour": schedule.endTime?.hour ?? 0,
+          "minute": schedule.endTime?.minute ?? 0,
+        },
+      };
+      print("유저 id는 : ${userId}");
+
+      // // // 데이터 저장 경로: tasks/{userId}/{formattedDate}/{scheduleId}
+      await database
+          .child("tasks/$userId/$formattedDate")
+          .set(taskData);
+
+
+
+      print("Task 저장 성공: $taskData");
+    } catch (e) {
+      print("Task 저장 중 오류 발생: $e");
     }
   }
 }
