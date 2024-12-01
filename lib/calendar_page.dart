@@ -49,7 +49,8 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   bool isLoading = true;
   final FirebaseService _firebaseService = FirebaseService();
-  DateTime _focusedDay = DateTime.now().subtract(Duration(days: 4));
+  // DateTime _focusedDay = DateTime.now().subtract(Duration(days: 4));
+  DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   bool _showYearMonthPicker = false;
   Map<DateTime, List<Schedule>> events = {};
@@ -76,10 +77,10 @@ class _CalendarPageState extends State<CalendarPage> {
       final userAndFriends = await _firebaseService.fetchUserAndFriends();
       // print("$userAndFriends");
 
-      final yearMonth = DateFormat('yyyy-MM').format(DateTime.now().subtract(Duration(days: 4)));
+      final yearMonth = DateFormat('yyyy-MM').format(DateTime.now());
       final filteredUsers = await _firebaseService.filterUsersInCalendar(userAndFriends, yearMonth);
 
-      final tasks = await _firebaseService.fetchTasksForFilteredUsers(filteredUsers, DateTime.now().subtract(Duration(days: 4)));
+      final tasks = await _firebaseService.fetchTasksForFilteredUsers(filteredUsers, DateTime.now());
 
       // print("tasks 데이터: $tasks");
       return tasks;
