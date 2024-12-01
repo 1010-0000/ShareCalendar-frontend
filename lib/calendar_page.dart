@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'bottom_icons.dart';
 import 'schedule_creation_page.dart';
 import 'schedule_modify_page.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'services/firebaseService.dart';
+import 'package:uuid/uuid.dart';
 
 // Owner information class
 class OwnerInfo {
@@ -49,7 +49,7 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   bool isLoading = true;
   final FirebaseService _firebaseService = FirebaseService();
-  DateTime _focusedDay = DateTime.now();
+  DateTime _focusedDay = DateTime.now().subtract(Duration(days: 4));
   DateTime? _selectedDay;
   bool _showYearMonthPicker = false;
   Map<DateTime, List<Schedule>> events = {};
@@ -68,67 +68,82 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
     _prefs = SharedPreferences.getInstance();
     _loadEvents();
-    _initializeData();
+    // _initializeData();
   }
 
-  Future<void> _initializeData() async {
+  Future<List<Map<String, dynamic>>> _initializeData() async {
     try {
       final userAndFriends = await _firebaseService.fetchUserAndFriends();
-      final yearMonth = DateFormat('yyyy-MM').format(DateTime.now());
+      // print("$userAndFriends");
+
+      final yearMonth = DateFormat('yyyy-MM').format(DateTime.now().subtract(Duration(days: 4)));
       final filteredUsers = await _firebaseService.filterUsersInCalendar(userAndFriends, yearMonth);
-      final tasks = await _firebaseService.fetchTasksForFilteredUsers(filteredUsers, DateTime.now());
-      print("tasks 데이터: $tasks");
+
+      final tasks = await _firebaseService.fetchTasksForFilteredUsers(filteredUsers, DateTime.now().subtract(Duration(days: 4)));
+
+      // print("tasks 데이터: $tasks");
+      return tasks;
     } catch (e) {
       print("오류 발생: $e");
+      return [];
     }
   }
 
   Future<void> _loadEvents() async {
     try {
-      final prefs = await _prefs;
-      final String? eventsJson = prefs.getString(EVENTS_STORAGE_KEY);
+      // tasks 데이터를 가져옴
+      final tasks = await _initializeData();
+      // print("tasks 데이터: $tasks");
+      setState(() {
+        events = {}; // 기존 events 초기화
 
-      if (eventsJson != null) {
-        final Map<String, dynamic> decodedData = json.decode(eventsJson);
+        // UUID 생성기
+        final Uuid uuid = Uuid();
 
-        setState(() {
-          events = {};
-          decodedData.forEach((key, value) {
-            final DateTime date = DateTime.parse(key);
-            final List<dynamic> scheduleList = value as List<dynamic>;
+        // tasks 데이터를 순회하며 events에 추가
+        tasks.forEach((task) {
+          final startDate = DateTime.parse(task["startDate"]);
+          final endDate = DateTime.parse(task["endDate"]);
+          final startTimeParts = task["startTime"].split(':');
+          final endTimeParts = task["endTime"].split(':');
 
-            events[date] = scheduleList.map((scheduleData) {
-              return Schedule(
-                id: scheduleData['id'],
-                title: scheduleData['title'],
-                startDate: DateTime.parse(scheduleData['startDate']),
-                startTime: scheduleData['startTime'] != null
-                    ? TimeOfDay(
-                    hour: scheduleData['startTime']['hour'],
-                    minute: scheduleData['startTime']['minute']
-                )
-                    : null,
-                endDate: DateTime.parse(scheduleData['endDate']),
-                endTime: scheduleData['endTime'] != null
-                    ? TimeOfDay(
-                    hour: scheduleData['endTime']['hour'],
-                    minute: scheduleData['endTime']['minute']
-                )
-                    : null,
-                memo: scheduleData['memo'],
-                owner: OwnerInfo(
-                  name: scheduleData['owner']['name'],
-                  color: Color(scheduleData['owner']['color']),
-                ),
-              );
-            }).toList();
-          });
+          final schedule = Schedule(
+            id: uuid.v4(), // 고유한 UUID 생성,
+            title: task["title"],
+            startDate: startDate,
+            startTime: TimeOfDay(
+              hour: int.parse(startTimeParts[0]),
+              minute: int.parse(startTimeParts[1]),
+            ),
+            endDate: endDate,
+            endTime: TimeOfDay(
+              hour: int.parse(endTimeParts[0]),
+              minute: int.parse(endTimeParts[1]),
+            ),
+            memo: task["memo"],
+            owner: OwnerInfo(
+              name: task["name"],
+              color: task["isUser"] ? Colors.green : Colors.blue,
+            ),
+          );
+          // startDate부터 endDate까지 events에 추가
+          for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+            final currentDate = startDate.add(Duration(days: i));
 
-          scheduleCount = events.values.fold(0, (sum, list) => sum + list.length);
+            if (events[currentDate] == null) {
+              events[currentDate] = [schedule];
+            } else {
+              events[currentDate]!.add(schedule);
+            }
+          }
         });
-      }
+
+        // 업데이트된 events의 총 일정 수를 계산
+        scheduleCount = events.values.fold(0, (sum, list) => sum + list.length);
+        // print("$events");
+      });
     } catch (e) {
-      print('Error loading events: $e');
+      print('Error loading tasks: $e');
     }
   }
 
@@ -176,7 +191,7 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-  void _addEvent(DateTime date, Schedule schedule) {
+  void _addEvent(DateTime date, Schedule schedule) async {
     setState(() {
       if (events[date] == null) {
         events[date] = [schedule];
@@ -185,10 +200,13 @@ class _CalendarPageState extends State<CalendarPage> {
       }
       scheduleCount++;
     });
+
+    // Firebase에 저장
+    await _firebaseService.saveTaskToFirebase(schedule);
     _saveEvents();
   }
 
-  void _updateEvent(Schedule updatedSchedule) {
+  void _updateEvent(Schedule updatedSchedule) async {
     setState(() {
       // 기존 일정을 모든 날짜에서 완전히 제거
       events.forEach((date, schedules) {
@@ -211,20 +229,43 @@ class _CalendarPageState extends State<CalendarPage> {
         }
       }
     });
+
+    // Firebase에 업데이트
+    await _firebaseService.updateTaskInFirebase(updatedSchedule);
+
     _saveEvents();
   }
 
-  void _deleteEvent(DateTime date, String scheduleId) {
+  // void _deleteEvent(DateTime date, String scheduleId) {
+  //   setState(() {
+  //     if (events[date] != null) {
+  //       events[date]!.removeWhere((schedule) => schedule.id == scheduleId);
+  //       if (events[date]!.isEmpty) {
+  //         events.remove(date);
+  //       }
+  //     }
+  //   });
+  //   _saveEvents();
+  // }
+
+  void _deleteEvent(DateTime date, String scheduleId) async {
     setState(() {
       if (events[date] != null) {
+        // Local state에서 이벤트 제거
         events[date]!.removeWhere((schedule) => schedule.id == scheduleId);
         if (events[date]!.isEmpty) {
           events.remove(date);
         }
       }
     });
+
+    // Firebase에서 이벤트 삭제
+    await _firebaseService.deleteTaskFromFirebase(scheduleId, date);
+
+    // 로컬 저장소 동기화
     _saveEvents();
   }
+
 
   List<TableRow> _buildCalendarRows() {
     final daysInMonth = DateTime(_focusedDay.year, _focusedDay.month + 1, 0).day;
@@ -294,11 +335,21 @@ class _CalendarPageState extends State<CalendarPage> {
     events.forEach((date, scheduleList) {
       for (var schedule in scheduleList) {
         // 현재 날짜가 일정의 기간에 포함되는지 확인
+        // bool isInSchedulePeriod =
+        //     currentDate.isAtSameMomentAs(schedule.startDate) ||
+        //         currentDate.isAtSameMomentAs(schedule.endDate) ||
+        //         (currentDate.isAfter(schedule.startDate) &&
+        //             currentDate.isBefore(schedule.endDate));
+
         bool isInSchedulePeriod =
-            currentDate.isAtSameMomentAs(schedule.startDate) ||
-                currentDate.isAtSameMomentAs(schedule.endDate) ||
-                (currentDate.isAfter(schedule.startDate) &&
-                    currentDate.isBefore(schedule.endDate));
+            (currentDate.year == schedule.startDate.year &&
+                currentDate.month == schedule.startDate.month &&
+                currentDate.day == schedule.startDate.day) ||
+                (currentDate.year == schedule.endDate.year &&
+                    currentDate.month == schedule.endDate.month &&
+                    currentDate.day == schedule.endDate.day) ||
+                (currentDate.isAfter(DateTime(schedule.startDate.year, schedule.startDate.month, schedule.startDate.day)) &&
+                    currentDate.isBefore(DateTime(schedule.endDate.year, schedule.endDate.month, schedule.endDate.day)));
 
         // 이미 추가되지 않은 일정인 경우에만 추가
         if (isInSchedulePeriod && !displayedEventIds.contains(schedule.id)) {
@@ -306,7 +357,9 @@ class _CalendarPageState extends State<CalendarPage> {
 
           bool isStart = currentDate.isAtSameMomentAs(schedule.startDate);
           bool isEnd = currentDate.isAtSameMomentAs(schedule.endDate);
-          bool isMiddle = currentDate.isAtSameMomentAs(schedule.middleDate);
+          bool isMiddle = currentDate.year == schedule.middleDate.year &&
+              currentDate.month == schedule.middleDate.month &&
+              currentDate.day == schedule.middleDate.day;
 
           eventWidgets.add(
             Container(
@@ -435,6 +488,10 @@ class _CalendarPageState extends State<CalendarPage> {
 
                             scheduleCount--;
                           });
+
+                          // Firebase에서 일정 삭제
+                          _deleteEvent(schedule.startDate, schedule.id); // Firebase 연동
+
                           _saveEvents();
                           // 다이얼로그 닫기
                           Navigator.of(context).pop();
