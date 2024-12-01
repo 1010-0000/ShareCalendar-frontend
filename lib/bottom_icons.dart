@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:sharecalendar_app/Profile_page.dart';
-import 'alarm_settings_page.dart';  // 추가: AlarmSettingsPage 임포트
 
 class BottomIcons extends StatelessWidget {
   @override
@@ -11,20 +9,61 @@ class BottomIcons extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
       ),
-      child:Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Row(
         children: [
-          Icon(FontAwesomeIcons.atom, color: Colors.green),
-          Icon(FontAwesomeIcons.calendarCheck, color: Colors.green),
-          GestureDetector(
-            onTap: () {
-              // 아이콘 클릭 시 profilepage로 이동
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ProfilePage(username: "", userId: "")),
-              );
-            },
-            child: Icon(Icons.person, color: Colors.green),
+          // 메인 페이지로 이동
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (ModalRoute.of(context)?.settings.name != '/mainPage') {
+                  Navigator.pushNamed(context, '/mainPage');
+                }
+              },
+              child: Center(
+                child: Icon(
+                  FontAwesomeIcons.atom,
+                  color: ModalRoute.of(context)?.settings.name == '/mainPage'
+                      ? Colors.grey
+                      : Colors.green,
+                ),
+              ),
+            ),
+          ),
+          // 캘린더 페이지로 이동
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (ModalRoute.of(context)?.settings.name != '/calendar') {
+                  Navigator.pushNamed(context, '/calendar');
+                }
+              },
+              child: Center(
+                child: Icon(
+                  FontAwesomeIcons.calendarCheck,
+                  color: ModalRoute.of(context)?.settings.name == '/calendar'
+                      ? Colors.grey
+                      : Colors.green,
+                ),
+              ),
+            ),
+          ),
+          // 마이페이지로 이동
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (ModalRoute.of(context)?.settings.name != '/profile') {
+                  Navigator.pushNamed(context, '/profile');
+                }
+              },
+              child: Center(
+                child: Icon(
+                  Icons.person,
+                  color: ModalRoute.of(context)?.settings.name == '/profile'
+                      ? Colors.grey
+                      : Colors.green,
+                ),
+              ),
+            ),
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'sign_up_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'user_provider.dart'; // UserProvider import
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -28,8 +29,15 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text.trim(),
         );
 
+        // // 로그인 성공: Provider를 통해 userId 저장
+        // final userId = userCredential.user?.uid;
+        // if (userId != null) {
+        //   Provider.of<UserProvider>(context, listen: false).setUserId(userId);
+        // }
+
         // 로그인 성공 시 메인 페이지로 이동
-        Navigator.pushReplacementNamed(context, '/MainPage');
+        Navigator.pushReplacementNamed(context, '/mainPage');
+
       } catch (e) {
         // 로그인 실패 시 에러 메시지 출력
         setState(() {
