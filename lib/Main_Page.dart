@@ -12,8 +12,8 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   final FirebaseService _firebaseService = FirebaseService();
-  List<Map<String, dynamic>> _tasksByUser = []; // 유저 및 친구들 정보 및 할일들 담은 List
-  bool isLoading = true; // 로딩 상태 추가
+  List<Map<String, dynamic>> _tasksByUser = [];
+  bool isLoading = true;
   late DateTime selectedDate;
   late List<DateTime> weekDays;
   final dateFormat = DateFormat('M월 d일', 'ko_KR');
@@ -30,33 +30,42 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _initializeData() async {
     try {
-      // FirebaseService의 getUserData 호출
       final userData = await _firebaseService.getUserNameEmail();
       setState(() {
         userName = userData['name'].toString();
         isLoading = false;
       });
 
-      // 1. 사용자 및 친구 정보 가져오기
       final userAndFriends = await _firebaseService.fetchUserAndFriends();
-      print("${userAndFriends}");
-      // 4. 필터링된 사용자들의 tasks 가져오기
       final tasks = await _firebaseService.fetchTasksForFilteredUsers(
           userAndFriends, selectedDate);
 
-      print("tasks 데이터: $tasks");
+      // 현재 선택된 날짜에 해당하는 일정만 필터링
+      final filteredTasks = tasks.where((task) {
+        final startDate = DateTime.parse(task["startDate"]);
+        final endDate = DateTime.parse(task["endDate"]);
 
-      // 리턴값을 다른 상태 변수에 저장하고 화면에 표시하고 싶다면 setState 사용
+        return selectedDate.isAtSameMomentAs(startDate) ||
+            selectedDate.isAtSameMomentAs(endDate) ||
+            (selectedDate.isAfter(startDate) &&
+                selectedDate.isBefore(endDate)) ||
+            (selectedDate.year == startDate.year &&
+                selectedDate.month == startDate.month &&
+                selectedDate.day == startDate.day) ||
+            (selectedDate.year == endDate.year &&
+                selectedDate.month == endDate.month &&
+                selectedDate.day == endDate.day);
+      }).toList();
+
       setState(() {
-        // 예: _userData = userAndFriends;
-        _tasksByUser = tasks;
-        isLoading = false; // 데이터 로드 완료
+        _tasksByUser = filteredTasks;
+        isLoading = false;
       });
-
     } catch (e) {
       print('오류 발생: $e');
       setState(() {
         userName = "오류";
+        isLoading = false;
       });
     }
   }
@@ -111,132 +120,145 @@ class _MainPageState extends State<MainPage> {
                   ),
                 ),
 
-                // Date Card
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            currentDate,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Week Calendar
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: weekDays
-                                .map((date) => GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  selectedDate = date;
-                                  _generateWeekDays();
-                                });
-                                _initializeData(); // 새로운 날짜에 해당하는 데이터 로드
-                              },
-                              child: CircleAvatar(
-                                radius: 24,
-                                backgroundColor: date.year == selectedDate.year &&
-                                    date.month == selectedDate.month &&
-                                    date.day == selectedDate.day
-                                    ? Colors.green
-                                    : Colors.grey[200],
-                                child: Text(
-                                  '${date.day}',
-                                  style: TextStyle(
-                                    color: date.year == selectedDate.year &&
-                                        date.month == selectedDate.month &&
-                                        date.day == selectedDate.day
-                                        ? Colors.white
-                                        : Colors.black,
-                                    fontSize: 18,
-                                  ),
+                // Date Card with Scrollable Content
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                currentDate,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ))
-                                .toList(),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            userName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey,
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-                          // 일정 표시
-                          if (_tasksByUser.isNotEmpty)
-                            Column(
-                              children: _tasksByUser
-                                  .map((schedule) => Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.calendar_today,
-                                      color: Colors.green,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            schedule['title'],
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            schedule['name'],
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: schedule['isUser'] == true
-                                                  ? Colors.green
-                                                  : Colors.grey,
-                                            ),
-                                          ),
-                                        ],
+                              const SizedBox(height: 16),
+                              // Week Calendar
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: weekDays
+                                    .map((date) => GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      selectedDate = date;
+                                      _generateWeekDays();
+                                    });
+                                    _initializeData();
+                                  },
+                                  child: CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: date.year == selectedDate.year &&
+                                        date.month == selectedDate.month &&
+                                        date.day == selectedDate.day
+                                        ? Colors.green
+                                        : Colors.grey[200],
+                                    child: Text(
+                                      '${date.day}',
+                                      style: TextStyle(
+                                        color: date.year == selectedDate.year &&
+                                            date.month == selectedDate.month &&
+                                            date.day == selectedDate.day
+                                            ? Colors.white
+                                            : Colors.black,
+                                        fontSize: 18,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              )).toList(),
-                            ),
-
-                          if (_tasksByUser.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12.0),
-                              child: Text(
-                                '일정 없음',
-                                style: TextStyle(
+                                  ),
+                                ))
+                                    .toList(),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                '오늘의 일정',
+                                style: const TextStyle(
                                   fontSize: 18,
                                   color: Colors.grey,
                                 ),
                               ),
-                            ),
-                        ],
+                              const SizedBox(height: 16),
+                              // Tasks List
+                              if (_tasksByUser.isNotEmpty)
+                                Column(
+                                  children: _tasksByUser
+                                      .map((schedule) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.calendar_today,
+                                          color: Colors.green,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                schedule['title'],
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    schedule['name'],
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      color: schedule['isUser'] == true
+                                                          ? Colors.green
+                                                          : Colors.grey,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    '${schedule['startTime']} - ${schedule['endTime']}',
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.grey,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )).toList(),
+                                ),
+                              if (_tasksByUser.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                                  child: Text(
+                                    '일정 없음',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
 
-                const Spacer(),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: BottomIcons(),
