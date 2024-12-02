@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'alarm_settings_page.dart';
+import 'friend_management_page.dart';
 import 'profile_setting.dart';  // 새로 추가된 import
 import 'bottom_icons.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -175,7 +176,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   title: Text('친구 관리'),
                   trailing: Icon(Icons.chevron_right),
                   onTap: () {
-                    // Implement friend management navigation
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => FriendManagementPage()),
+                    );
                   },
                 ),
                 Divider(),
