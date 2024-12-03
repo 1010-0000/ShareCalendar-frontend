@@ -22,6 +22,28 @@ class FirebaseService {
     return currentUser.uid;
   }
 
+  /// 로그인한 사용자와 친구의 id들 반환
+  Future<List<String>> getUserAndFriendIds() async {
+    String userId = getCurrentUserId();
+    List<String> userAndFriendIds = [userId]; // 로그인한 사용자 포함
+
+    try {
+      // 사용자 데이터 가져오기
+      DataSnapshot userSnapshot = await FirebaseDatabase.instance.ref('users/$userId').get();
+      if (userSnapshot.exists) {
+        Map<String, dynamic> userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+        if (userData.containsKey('friends')) {
+          Map<String, dynamic> friends = Map<String, dynamic>.from(userData['friends']);
+          userAndFriendIds.addAll(friends.keys); // 친구 ID 추가
+        }
+      }
+    } catch (e) {
+      print('사용자 및 친구 목록 가져오기 오류: $e');
+    }
+
+    return userAndFriendIds;
+  }
+
   /// 사용자 정보 수정
   Future<void> saveUserData(Map<String, dynamic> updatedData) async {
     try {
@@ -76,10 +98,10 @@ class FirebaseService {
     }
   }
 
-  Future<Map<String, String>> getUserNameAndColor() async {
+  /// 사용자의 이름과 색깔 정보
+  Future<Map<String, String>> getUserNameAndColor(String userId) async {
     try {
-      String userId = getCurrentUserId();
-      // Firebase에서 현재 사용자의 데이터 가져오기
+      // Firebase에서 주어진 userId의 데이터 가져오기
       DataSnapshot userSnapshot = await database.child("users/$userId").get();
 
       if (userSnapshot.exists) {
@@ -89,10 +111,10 @@ class FirebaseService {
           "color": userData["color"] ?? "#000000", // 기본값은 검정색
         };
       } else {
-        throw Exception("사용자 데이터를 찾을 수 없습니다.");
+        throw Exception("사용자 데이터를 찾을 수 없습니다. (userId: $userId)");
       }
     } catch (e) {
-      print("사용자 이름 및 색상 가져오기 중 오류 발생: $e");
+      print("사용자 이름 및 색상 가져오기 중 오류 발생 (userId: $userId): $e");
       return {
         "name": "오류 발생",
         "color": "#000000", // 기본값은 검정색

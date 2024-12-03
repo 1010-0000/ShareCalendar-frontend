@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,6 +62,7 @@ class _CalendarPageState extends State<CalendarPage> {
   String userName = ""; // 사용자 이름 저장
   Color userColor = Colors.green; // 사용자 색상 저장 (기본값)
   late Future<SharedPreferences> _prefs;
+  late Map<String, StreamSubscription> _taskSubscriptions; // 여러 사용자 구독 관리
 
   @override
   void initState() {
@@ -67,12 +70,103 @@ class _CalendarPageState extends State<CalendarPage> {
     _prefs = SharedPreferences.getInstance();
     _loadUserData(); // 사용자 데이터 로드
     _loadEvents();
+    subscribeToAllTasks(); // 실시간 구독 추가
+  }
+  late StreamSubscription _taskSubscription;
+
+  void subscribeToAllTasks() async {
+    _taskSubscriptions = {};
+
+    try {
+      // 로그인한 사용자와 친구들의 UID 가져오기
+      List<String> userAndFriendIds = await _firebaseService.getUserAndFriendIds();
+
+      for (String userId in userAndFriendIds) {
+        DatabaseReference tasksRef = FirebaseDatabase.instance.ref('tasks/$userId');
+
+        _taskSubscriptions[userId] = tasksRef.onValue.listen((event) async {
+          print('Firebase 구독 데이터 변경 감지 (사용자: $userId)');
+
+          final data = event.snapshot.value;
+
+          if (data != null && data is Map) {
+            // 사용자 정보 가져오기
+            Map<String, String> userInfo = await _firebaseService.getUserNameAndColor(userId);
+
+            // 데이터를 Schedule 객체로 변환
+            List<Schedule> schedules = data.entries.map((entry) {
+              final taskData = entry.value as Map;
+              print('Task 데이터 (사용자: $userId): $taskData');
+
+              return Schedule(
+                id: entry.key ?? '',
+                title: taskData["title"] ?? '제목 없음',
+                startDate: taskData["startDate"] != null
+                    ? DateTime.parse(taskData["startDate"])
+                    : DateTime.now(),
+                startTime: taskData["startTime"] != null
+                    ? TimeOfDay(
+                  hour: taskData["startTime"]["hour"] ?? 0,
+                  minute: taskData["startTime"]["minute"] ?? 0,
+                )
+                    : null,
+                endDate: taskData["endDate"] != null
+                    ? DateTime.parse(taskData["endDate"])
+                    : DateTime.now(),
+                endTime: taskData["endTime"] != null
+                    ? TimeOfDay(
+                  hour: taskData["endTime"]["hour"] ?? 0,
+                  minute: taskData["endTime"]["minute"] ?? 0,
+                )
+                    : null,
+                memo: taskData["memo"] ?? '',
+                owner: OwnerInfo(
+                  name: userInfo["name"] ?? '알 수 없음',
+                  color: userInfo["color"] != null
+                      ? Color(int.tryParse(userInfo["color"]!.replaceFirst('#', '0xFF')) ?? 0xFF000000)
+                      : Colors.grey,
+                ),
+              );
+            }).toList();
+
+            if (mounted) {
+              setState(() {
+                // 이전 사용자 데이터 제거
+                events.removeWhere((date, schedules) =>
+                    schedules.any((schedule) => schedule.owner.name == userInfo["name"]));
+
+                // 새로운 사용자 데이터 추가
+                schedules.forEach((schedule) {
+                  for (int i = 0; i <= schedule.endDate.difference(schedule.startDate).inDays; i++) {
+                    final currentDate = schedule.startDate.add(Duration(days: i));
+                    if (events[currentDate] == null) {
+                      events[currentDate] = [schedule];
+                    } else {
+                      events[currentDate]!.add(schedule);
+                    }
+                  }
+                });
+                print('이벤트 업데이트 완료: $events');
+              });
+            }
+          }
+        });
+      }
+    } catch (e) {
+      print('실시간 구독 설정 중 오류 발생: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _taskSubscription.cancel(); // 스트림 구독 해제
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
     try {
       // 사용자 이름 및 색상 로드
-      final userInfo = await _firebaseService.getUserNameAndColor();
+      final userInfo = await _firebaseService.getUserNameAndColor(_firebaseService.getCurrentUserId());
       setState(() {
         userName = userInfo['name'] ?? '사용자';
         userColor = Color(int.parse(userInfo['color']!.replaceFirst('#', '0xFF')));
