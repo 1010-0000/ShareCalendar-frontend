@@ -7,6 +7,7 @@ import 'schedule_creation_page.dart';
 import 'schedule_modify_page.dart';
 import 'services/firebaseService.dart';
 import 'package:uuid/uuid.dart';
+import 'package:collection/collection.dart';
 
 // Owner information class
 class OwnerInfo {
@@ -173,7 +174,7 @@ class _CalendarPageState extends State<CalendarPage> {
   void displayTasksOnCalendar(List<Schedule> schedules) {
     for (var schedule in schedules) {
       // 캘린더에 추가할 로직 구현
-      print("Schedule for calendar: ${schedule.title} (${schedule.owner.name})");
+      // print("Schedule for calendar: ${schedule.title} (${schedule.owner.name})");
     }
   }
 
@@ -223,6 +224,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   void _addEvent(DateTime date, Schedule schedule) async {
+    // 로컬 변수 업데이트
     setState(() {
       if (events[date] == null) {
         events[date] = [schedule];
@@ -232,57 +234,87 @@ class _CalendarPageState extends State<CalendarPage> {
       scheduleCount++;
     });
 
-    // Firebase에 저장
-    await _firebaseService.saveTaskToFirebase(schedule);
-
-    _loadEvents();
+    // Firebase와 비동기 동기화
+    try {
+      await _firebaseService.saveTaskToFirebase(schedule);
+    } catch (e) {
+      print('Failed to save task to Firebase: $e');
+      // Firebase 저장 실패 시 로컬 상태 롤백
+      setState(() {
+        events[date]?.remove(schedule);
+        if (events[date]?.isEmpty ?? false) {
+          events.remove(date);
+        }
+        scheduleCount--;
+      });
+    }
   }
 
   void _updateEvent(Schedule updatedSchedule) async {
+    // 로컬 변수 업데이트
     setState(() {
-      // 기존 일정을 모든 날짜에서 완전히 제거
+      // 기존 일정을 삭제
       events.forEach((date, schedules) {
         schedules.removeWhere((schedule) => schedule.id == updatedSchedule.id);
       });
 
-      // 빈 리스트를 가진 날짜 제거
-      events.removeWhere((date, schedules) => schedules.isEmpty);
-
-      // 새로운 날짜 범위에 일정 추가 (중복 없이)
+      // 새로운 일정 추가
       int daysDifference = updatedSchedule.endDate.difference(updatedSchedule.startDate).inDays;
       for (int i = 0; i <= daysDifference; i++) {
-        DateTime currentDate = updatedSchedule.startDate.add(Duration(days: i));
-
-        // 이미 해당 날짜에 동일한 일정이 없는 경우에만 추가
+        final currentDate = updatedSchedule.startDate.add(Duration(days: i));
         if (events[currentDate] == null) {
           events[currentDate] = [updatedSchedule];
-        } else if (!events[currentDate]!.any((schedule) => schedule.id == updatedSchedule.id)) {
+        } else {
           events[currentDate]!.add(updatedSchedule);
         }
       }
     });
 
-    // Firebase에 업데이트
-    await _firebaseService.updateTaskInFirebase(updatedSchedule);
-
-    _loadEvents();
+    // Firebase와 비동기 동기화
+    try {
+      await _firebaseService.updateTaskInFirebase(updatedSchedule);
+    } catch (e) {
+      print('Failed to update task in Firebase: $e');
+      // Firebase 업데이트 실패 시 알림 표시
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('일정 업데이트 실패. 인터넷 상태를 확인하세요.')),
+      );
+    }
   }
 
+
   void _deleteEvent(DateTime date, String scheduleId) async {
+    Schedule? deletedSchedule;
+
+    // 로컬 변수에서 삭제
     setState(() {
       if (events[date] != null) {
-        // Local state에서 이벤트 제거
-        events[date]!.removeWhere((schedule) => schedule.id == scheduleId);
-        if (events[date]!.isEmpty) {
+        deletedSchedule = events[date]?.firstWhereOrNull((s) => s.id == scheduleId);
+        events[date]?.removeWhere((schedule) => schedule.id == scheduleId);
+        if (events[date]?.isEmpty ?? false) {
           events.remove(date);
         }
+        scheduleCount--;
       }
     });
 
-    // Firebase에서 이벤트 삭제
-    await _firebaseService.deleteTaskFromFirebase(scheduleId, date);
-
-    _loadEvents();
+    // Firebase와 비동기 동기화
+    try {
+      await _firebaseService.deleteTaskFromFirebase(scheduleId, date);
+    } catch (e) {
+      print('Failed to delete task in Firebase: $e');
+      // Firebase 삭제 실패 시 로컬 상태 복원
+      if (deletedSchedule != null) {
+        setState(() {
+          if (events[date] == null) {
+            events[date] = [deletedSchedule!];
+          } else {
+            events[date]!.add(deletedSchedule!);
+          }
+          scheduleCount++;
+        });
+      }
+    }
   }
 
 
