@@ -22,6 +22,60 @@ class FirebaseService {
     return currentUser.uid;
   }
 
+  /// 사용자 정보 수정
+  Future<void> saveUserData(Map<String, dynamic> updatedData) async {
+    try {
+      String userId = getCurrentUserId(); // 현재 로그인된 사용자 ID 가져오기
+      await database.child('users/$userId').update(updatedData);
+      print('사용자 데이터 저장 성공');
+    } catch (e) {
+      print('사용자 데이터 저장 실패: $e');
+      throw e; // 필요 시 예외를 다시 던져 처리
+    }
+  }
+
+  /// 로그인 사용자 정보
+  Future<Map<String, dynamic>> fetchUserData() async {
+    final String userId = getCurrentUserId();
+    final DataSnapshot userSnapshot = await FirebaseDatabase.instance.ref().child('users/$userId').get();
+
+    if (!userSnapshot.exists) {
+      throw Exception("사용자 데이터를 찾을 수 없습니다.");
+    }
+
+    return Map<String, dynamic>.from(userSnapshot.value as Map);
+  }
+
+  /// 사용자 로그아웃 처리
+  Future<void> logoutUser() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      print("로그아웃 성공");
+    } catch (e) {
+      print("로그아웃 중 오류 발생: $e");
+      throw Exception("로그아웃 중 오류가 발생했습니다.");
+    }
+  }
+
+  Future<void> deleteUserFromFirebase() async {
+    String userId = getCurrentUserId(); // 현재 사용자 ID 가져오기
+    try {
+      // 1. Firebase Realtime Database에서 사용자 데이터 삭제
+      await database.child("users/$userId").remove();
+
+      // 2. Firebase Authentication에서 사용자 계정 삭제
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        await currentUser.delete();
+      }
+
+      print("사용자 삭제 성공: $userId");
+    } catch (e) {
+      print("사용자 삭제 중 오류 발생: $e");
+      throw Exception("사용자 삭제 중 오류가 발생했습니다.");
+    }
+  }
+
   Future<Map<String, String>> getUserNameAndColor() async {
     try {
       String userId = getCurrentUserId();

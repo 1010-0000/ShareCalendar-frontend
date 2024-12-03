@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'alarm_settings_page.dart';
 import 'friend_management_page.dart';
-import 'profile_setting.dart';  // 새로 추가된 import
 import 'bottom_icons.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:provider/provider.dart';
 import 'user_provider.dart';
+import './services/firebaseService.dart';
+import './profile_setting.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -16,7 +15,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final DatabaseReference database = FirebaseDatabase.instance.ref();
+  final FirebaseService _firebaseService = FirebaseService();
   String userName = '로딩 중...';
   String userEmail = '로딩 중...';
 
@@ -28,36 +27,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchUserData() async {
     try {
-      // // Provider를 통해 userId 가져오기
-      // final userId = Provider.of<UserProvider>(context, listen: false).userId;
-
-      // Firebase Authentication을 통해 현재 로그인한 사용자 가져오기
-      User? currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
-        throw Exception("로그인된 사용자가 없습니다.");
-      }
-
-      // 사용자 ID
-      String userId = currentUser.uid;
-
-      if (userId == null) {
-        throw Exception('로그인된 사용자가 없습니다.');
-        Navigator.pushReplacementNamed(context, '/');
-      }
-
-      // Firebase Database에서 사용자 데이터 가져오기
-      final userSnapshot = await database.child('users/$userId').get();
-
-      if (userSnapshot.exists) {
-        final userData = Map<String, dynamic>.from(userSnapshot.value as Map);
-
-        setState(() {
-          userName = userData['name'] ?? '이름 없음';
-          userEmail = userData['email'] ?? '이메일 없음';
-        });
-      } else {
-        throw Exception('사용자 데이터를 찾을 수 없습니다.');
-      }
+      final userInfo = await _firebaseService.getUserNameEmail();
+      setState(() {
+        userName = userInfo['name'] ?? '이름 없음';
+        userEmail = userInfo['email'] ?? '이메일 없음';
+      });
     } catch (e) {
       print('오류 발생: $e');
       setState(() {
@@ -89,28 +63,40 @@ class _ProfilePageState extends State<ProfilePage> {
     ) ?? false;
   }
 
-  void _handleLogout(BuildContext context) async {
-    if (await _showConfirmationDialog(context, '로그아웃')) {
-      // Firebase 로그아웃
-      await FirebaseAuth.instance.signOut();
+  Future<void> deleteUserAccount(BuildContext context) async {
+    final isConfirmed = await _showConfirmationDialog(context, '회원탈퇴');
+    if (!isConfirmed) return;
 
-      // Provider의 사용자 정보 초기화
-      Provider.of<UserProvider>(context, listen: false).clearUser();
-
-      // Implement logout logic here
-      Navigator.pushNamedAndRemoveUntil(
-          context, "/", (route) => false
+    try {
+      await _firebaseService.deleteUserFromFirebase();
+      Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
+    } catch (e) {
+      print('회원탈퇴 실패: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('회원탈퇴 실패. 관리자에게 문의하세요.')),
       );
-
     }
   }
 
-  void _handleDeleteAccount(BuildContext context) async {
-    if (await _showConfirmationDialog(context, '회원탈퇴')) {
-      // Implement account deletion logic here
-      Navigator.pushNamedAndRemoveUntil(
-          context, "/", (route) => false
-      );
+  void _handleLogout(BuildContext context) async {
+    if (await _showConfirmationDialog(context, '로그아웃')) {
+      try {
+        // FirebaseService를 사용해 로그아웃 처리
+        await _firebaseService.logoutUser();
+
+        // Provider의 사용자 정보 초기화
+        Provider.of<UserProvider>(context, listen: false).clearUser();
+
+        // 로그인 화면으로 이동
+        Navigator.pushNamedAndRemoveUntil(
+          context, "/", (route) => false,
+        );
+      } catch (e) {
+        print('로그아웃 실패: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('로그아웃 실패. 관리자에게 문의하세요.')),
+        );
+      }
     }
   }
 
@@ -123,8 +109,20 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           IconButton(
             icon: Icon(Icons.settings, color: Colors.grey),
-            onPressed: () {
-              Navigator.pushNamed(context,'/profileSetting');
+            onPressed: () async {
+              // ProfileSetting에서 반환된 데이터를 받음
+              final updatedData = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ProfileSetting()),
+              );
+
+              // 업데이트된 데이터를 상태에 반영
+              if (updatedData != null && mounted) {
+                setState(() {
+                  userName = updatedData['name'] ?? userName;
+                  userEmail = updatedData['email'] ?? userEmail;
+                });
+              }
             },
           ),
         ],
@@ -134,7 +132,6 @@ class _ProfilePageState extends State<ProfilePage> {
           Expanded(
             child: ListView(
               children: [
-                // 기존 Profile 섹션 코드...
                 Center(
                   child: Column(
                     children: [
@@ -160,7 +157,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Menu items...
                 ListTile(
                   title: Text('알림 설정'),
                   trailing: Icon(Icons.chevron_right),
@@ -189,11 +185,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   onTap: () => _handleLogout(context),
                 ),
                 const SizedBox(height: 40),
-                // Delete account button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: TextButton(
-                    onPressed: () => _handleDeleteAccount(context),
+                    onPressed: () => deleteUserAccount(context),
                     child: Text(
                       '회원탈퇴',
                       style: TextStyle(color: Colors.grey),
@@ -208,7 +203,5 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
-
 }
 
