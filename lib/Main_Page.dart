@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'bottom_icons.dart';
@@ -19,13 +22,15 @@ class _MainPageState extends State<MainPage> {
   final dateFormat = DateFormat('M월 d일', 'ko_KR');
   String userName = '';
   final otherUsers = ['선준', '건우', '문권', '희찬'];
+  Map<String, StreamSubscription> _taskSubscriptions = {}; // 스트림 구독 관리용 변수
 
   @override
   void initState() {
     super.initState();
-    _initializeData();
     selectedDate = DateTime.now();
     _generateWeekDays();
+    _initializeData();
+    subscribeToAllTasks(); // 실시간 구독 추가
   }
 
   Future<void> _initializeData() async {
@@ -33,7 +38,7 @@ class _MainPageState extends State<MainPage> {
       final userData = await _firebaseService.getUserNameEmail();
       setState(() {
         userName = userData['name'].toString();
-        isLoading = false;
+        isLoading = true;
       });
 
       final userAndFriends = await _firebaseService.fetchUserAndFriends();
@@ -74,6 +79,103 @@ class _MainPageState extends State<MainPage> {
     DateTime startOfWeek = selectedDate.subtract(Duration(days: selectedDate.weekday % 7));
     weekDays = List.generate(7, (index) => startOfWeek.add(Duration(days: index)));
   }
+
+  void subscribeToAllTasks() async {
+    try {
+      // 로딩 상태 시작
+      setState(() {
+        isLoading = true;
+      });
+
+      // 로그인한 사용자와 친구들의 UID 가져오기
+      List<String> userAndFriendIds = await _firebaseService.getUserAndFriendIds();
+
+      for (String userId in userAndFriendIds) {
+        DatabaseReference tasksRef = FirebaseDatabase.instance.ref('tasks/$userId');
+
+        // 기존 구독이 있다면 취소
+        if (_taskSubscriptions.containsKey(userId)) {
+          await _taskSubscriptions[userId]!.cancel();
+        }
+
+        // 새로운 구독 추가
+        _taskSubscriptions[userId] = tasksRef.onValue.listen((event) async {
+          print('Firebase 구독 데이터 변경 감지 (사용자: $userId)');
+
+          final data = event.snapshot.value;
+
+          if (data != null && data is Map) {
+            // 사용자 정보 가져오기
+            Map<String, String> userInfo = await _firebaseService.getUserNameAndColor(userId);
+
+            // 데이터를 필터링하여 새로운 일정 생성
+            List<Map<String, dynamic>> schedules = data.entries.map((entry) {
+              final taskData = entry.value as Map;
+
+              return {
+                "title": taskData["title"] ?? '제목 없음',
+                "name": userInfo["name"] ?? '알 수 없음',
+                "startDate": taskData["startDate"] ?? '',
+                "endDate": taskData["endDate"] ?? '',
+                "startTime": taskData["startTime"] != null
+                    ? '${taskData["startTime"]["hour"]}:${taskData["startTime"]["minute"]}'
+                    : '시간 없음',
+                "endTime": taskData["endTime"] != null
+                    ? '${taskData["endTime"]["hour"]}:${taskData["endTime"]["minute"]}'
+                    : '시간 없음',
+                "isUser": userId == _firebaseService.getCurrentUserId(), // 본인 여부
+              };
+            }).toList();
+
+            // 선택된 날짜가 시작/종료 날짜 또는 그 사이에 포함된 일정만 필터링
+            List<Map<String, dynamic>> filteredSchedules = schedules.where((task) {
+              DateTime taskStartDate = DateTime.parse(task['startDate']);
+              DateTime taskEndDate = DateTime.parse(task['endDate']);
+
+              // 선택된 날짜가 일정 범위에 포함되는지 확인
+              return selectedDate.isAtSameMomentAs(taskStartDate) ||
+                  selectedDate.isAtSameMomentAs(taskEndDate) ||
+                  (selectedDate.isAfter(taskStartDate) && selectedDate.isBefore(taskEndDate)) ||
+                  (selectedDate.year == taskStartDate.year &&
+                      selectedDate.month == taskStartDate.month &&
+                      selectedDate.day == taskStartDate.day) ||
+                  (selectedDate.year == taskEndDate.year &&
+                      selectedDate.month == taskStartDate.month &&
+                      selectedDate.day == taskEndDate.day);
+            }).toList();
+
+            if (mounted) {
+              setState(() {
+                // 다른 사용자의 일정이 변경된 경우 _initializeData() 호출
+                if (userId != _firebaseService.getCurrentUserId()) {
+                  _initializeData();  // 다른 사용자의 일정이 변경된 경우 _initializeData() 호출
+                }
+
+                // 필터링된 데이터 추가
+                _tasksByUser.addAll(filteredSchedules);
+
+                print('선택된 날짜의 일정 업데이트 완료: $_tasksByUser');
+              });
+            }
+          }
+        });
+      }
+
+      // 로딩 상태 종료
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      print('실시간 구독 설정 중 오류 발생: $e');
+      // 오류 발생 시 로딩 상태 종료
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+
+
 
   @override
   Widget build(BuildContext context) {
