@@ -132,35 +132,29 @@ class _MainPageState extends State<MainPage> {
               DateTime taskStartDate = DateTime.parse(task['startDate']);
               DateTime taskEndDate = DateTime.parse(task['endDate']);
 
-              // 선택된 날짜가 시작/종료 날짜 또는 그 사이에 포함되었는지 확인
+              // 선택된 날짜가 일정 범위에 포함되는지 확인
               return selectedDate.isAtSameMomentAs(taskStartDate) ||
                   selectedDate.isAtSameMomentAs(taskEndDate) ||
-                  (selectedDate.isAfter(taskStartDate) && selectedDate.isBefore(taskEndDate));
+                  (selectedDate.isAfter(taskStartDate) && selectedDate.isBefore(taskEndDate)) ||
+                  (selectedDate.year == taskStartDate.year &&
+                      selectedDate.month == taskStartDate.month &&
+                      selectedDate.day == taskStartDate.day) ||
+                  (selectedDate.year == taskEndDate.year &&
+                      selectedDate.month == taskStartDate.month &&
+                      selectedDate.day == taskEndDate.day);
             }).toList();
 
             if (mounted) {
               setState(() {
-                // 선택된 날짜의 기존 데이터 제거
-                _tasksByUser.removeWhere((task) {
-                  DateTime taskStartDate = DateTime.parse(task['startDate']);
-                  DateTime taskEndDate = DateTime.parse(task['endDate']);
-                  return selectedDate.isAtSameMomentAs(taskStartDate) ||
-                      selectedDate.isAtSameMomentAs(taskEndDate) ||
-                      (selectedDate.isAfter(taskStartDate) && selectedDate.isBefore(taskEndDate));
-                });
+                // 다른 사용자의 일정이 변경된 경우 _initializeData() 호출
+                if (userId != _firebaseService.getCurrentUserId()) {
+                  _initializeData();  // 다른 사용자의 일정이 변경된 경우 _initializeData() 호출
+                }
 
                 // 필터링된 데이터 추가
                 _tasksByUser.addAll(filteredSchedules);
 
                 print('선택된 날짜의 일정 업데이트 완료: $_tasksByUser');
-              });
-            }
-          } else {
-            if (mounted) {
-              setState(() {
-                // 데이터가 없을 경우 해당 사용자의 모든 데이터를 제거
-                _tasksByUser.removeWhere((task) => task['name'] == userId);
-                print('사용자 $userId 일정이 제거되었습니다.');
               });
             }
           }
@@ -179,6 +173,7 @@ class _MainPageState extends State<MainPage> {
       });
     }
   }
+
 
 
 

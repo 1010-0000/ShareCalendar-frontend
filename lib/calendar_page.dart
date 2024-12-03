@@ -75,14 +75,16 @@ class _CalendarPageState extends State<CalendarPage> {
   late StreamSubscription _taskSubscription;
 
   void subscribeToAllTasks() async {
-    _taskSubscriptions = {};
+    _taskSubscriptions = {}; // 구독 초기화
 
     try {
       // 로그인한 사용자와 친구들의 UID 가져오기
-      List<String> userAndFriendIds = await _firebaseService.getUserAndFriendIds();
+      List<String> userAndFriendIds = await _firebaseService
+          .getUserAndFriendIds();
 
       for (String userId in userAndFriendIds) {
-        DatabaseReference tasksRef = FirebaseDatabase.instance.ref('tasks/$userId');
+        DatabaseReference tasksRef = FirebaseDatabase.instance.ref(
+            'tasks/$userId');
 
         _taskSubscriptions[userId] = tasksRef.onValue.listen((event) async {
           print('Firebase 구독 데이터 변경 감지 (사용자: $userId)');
@@ -91,12 +93,12 @@ class _CalendarPageState extends State<CalendarPage> {
 
           if (data != null && data is Map) {
             // 사용자 정보 가져오기
-            Map<String, String> userInfo = await _firebaseService.getUserNameAndColor(userId);
+            Map<String, String> userInfo = await _firebaseService
+                .getUserNameAndColor(userId);
 
             // 데이터를 Schedule 객체로 변환
             List<Schedule> schedules = data.entries.map((entry) {
               final taskData = entry.value as Map;
-              print('Task 데이터 (사용자: $userId): $taskData');
 
               return Schedule(
                 id: entry.key ?? '',
@@ -123,7 +125,9 @@ class _CalendarPageState extends State<CalendarPage> {
                 owner: OwnerInfo(
                   name: userInfo["name"] ?? '알 수 없음',
                   color: userInfo["color"] != null
-                      ? Color(int.tryParse(userInfo["color"]!.replaceFirst('#', '0xFF')) ?? 0xFF000000)
+                      ? Color(int.tryParse(
+                      userInfo["color"]!.replaceFirst('#', '0xFF')) ??
+                      0xFF000000)
                       : Colors.grey,
                 ),
               );
@@ -131,22 +135,10 @@ class _CalendarPageState extends State<CalendarPage> {
 
             if (mounted) {
               setState(() {
-                // 이전 사용자 데이터 제거
-                events.removeWhere((date, schedules) =>
-                    schedules.any((schedule) => schedule.owner.name == userInfo["name"]));
-
-                // 새로운 사용자 데이터 추가
-                schedules.forEach((schedule) {
-                  for (int i = 0; i <= schedule.endDate.difference(schedule.startDate).inDays; i++) {
-                    final currentDate = schedule.startDate.add(Duration(days: i));
-                    if (events[currentDate] == null) {
-                      events[currentDate] = [schedule];
-                    } else {
-                      events[currentDate]!.add(schedule);
-                    }
-                  }
-                });
-                print('이벤트 업데이트 완료: $events');
+                // 다른 사람의 일정 변경일 경우에는 _loadEvents() 호출
+                if (userId != _firebaseService.getCurrentUserId()) {
+                  _loadEvents(); // 다른 사용자의 일정 변경 시 _loadEvents 호출
+                }
               });
             }
           }
