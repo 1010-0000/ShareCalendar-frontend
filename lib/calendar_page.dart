@@ -96,42 +96,42 @@ class _CalendarPageState extends State<CalendarPage> {
             Map<String, String> userInfo = await _firebaseService
                 .getUserNameAndColor(userId);
 
-            // 데이터를 Schedule 객체로 변환
-            List<Schedule> schedules = data.entries.map((entry) {
-              final taskData = entry.value as Map;
-
-              return Schedule(
-                id: entry.key ?? '',
-                title: taskData["title"] ?? '제목 없음',
-                startDate: taskData["startDate"] != null
-                    ? DateTime.parse(taskData["startDate"])
-                    : DateTime.now(),
-                startTime: taskData["startTime"] != null
-                    ? TimeOfDay(
-                  hour: taskData["startTime"]["hour"] ?? 0,
-                  minute: taskData["startTime"]["minute"] ?? 0,
-                )
-                    : null,
-                endDate: taskData["endDate"] != null
-                    ? DateTime.parse(taskData["endDate"])
-                    : DateTime.now(),
-                endTime: taskData["endTime"] != null
-                    ? TimeOfDay(
-                  hour: taskData["endTime"]["hour"] ?? 0,
-                  minute: taskData["endTime"]["minute"] ?? 0,
-                )
-                    : null,
-                memo: taskData["memo"] ?? '',
-                owner: OwnerInfo(
-                  name: userInfo["name"] ?? '알 수 없음',
-                  color: userInfo["color"] != null
-                      ? Color(int.tryParse(
-                      userInfo["color"]!.replaceFirst('#', '0xFF')) ??
-                      0xFF000000)
-                      : Colors.grey,
-                ),
-              );
-            }).toList();
+            // // 데이터를 Schedule 객체로 변환
+            // List<Schedule> schedules = data.entries.map((entry) {
+            //   final taskData = entry.value as Map;
+            //
+            //   return Schedule(
+            //     id: entry.key ?? '',
+            //     title: taskData["title"] ?? '제목 없음',
+            //     startDate: taskData["startDate"] != null
+            //         ? DateTime.parse(taskData["startDate"])
+            //         : DateTime.now(),
+            //     startTime: taskData["startTime"] != null
+            //         ? TimeOfDay(
+            //       hour: taskData["startTime"]["hour"] ?? 0,
+            //       minute: taskData["startTime"]["minute"] ?? 0,
+            //     )
+            //         : null,
+            //     endDate: taskData["endDate"] != null
+            //         ? DateTime.parse(taskData["endDate"])
+            //         : DateTime.now(),
+            //     endTime: taskData["endTime"] != null
+            //         ? TimeOfDay(
+            //       hour: taskData["endTime"]["hour"] ?? 0,
+            //       minute: taskData["endTime"]["minute"] ?? 0,
+            //     )
+            //         : null,
+            //     memo: taskData["memo"] ?? '',
+            //     owner: OwnerInfo(
+            //       name: userInfo["name"] ?? '알 수 없음',
+            //       color: userInfo["color"] != null
+            //           ? Color(int.tryParse(
+            //           userInfo["color"]!.replaceFirst('#', '0xFF')) ??
+            //           0xFF000000)
+            //           : Colors.grey,
+            //     ),
+            //   );
+            // }).toList();
 
             if (mounted) {
               setState(() {
@@ -178,7 +178,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
       final tasks = await _firebaseService.fetchTasksForFilteredUsers(filteredUsers, _focusedDay);
 
-      // print("tasks 데이터: $tasks");
+      print("tasks 데이터: $tasks");
       return tasks;
     } catch (e) {
       print("오류 발생: $e");
@@ -464,20 +464,19 @@ class _CalendarPageState extends State<CalendarPage> {
 
     return rows;
   }
-
   List<Widget> _buildEventWidgets(DateTime currentDate) {
     List<Widget> eventWidgets = [];
-    Set<String> displayedEventIds = {}; // Set을 사용하여 중복 제거
+    Set<String> displayedEventIds = {}; // 중복 제거를 위한 Set
 
+    // events에서 날짜와 스케줄 리스트를 순회
     events.forEach((date, scheduleList) {
-      for (var schedule in scheduleList) {
-        // 현재 날짜가 일정의 기간에 포함되는지 확인
-        // bool isInSchedulePeriod =
-        //     currentDate.isAtSameMomentAs(schedule.startDate) ||
-        //         currentDate.isAtSameMomentAs(schedule.endDate) ||
-        //         (currentDate.isAfter(schedule.startDate) &&
-        //             currentDate.isBefore(schedule.endDate));
+      // 스케줄 리스트를 길이가 긴 순서로 정렬
+      scheduleList.sort((a, b) =>
+          (b.endDate.difference(b.startDate).inDays + 1)
+              .compareTo(a.endDate.difference(a.startDate).inDays + 1));
 
+      for (var schedule in scheduleList) {
+        // 스케줄이 현재 날짜에 속하는지 확인
         bool isInSchedulePeriod =
             (currentDate.year == schedule.startDate.year &&
                 currentDate.month == schedule.startDate.month &&
@@ -485,19 +484,32 @@ class _CalendarPageState extends State<CalendarPage> {
                 (currentDate.year == schedule.endDate.year &&
                     currentDate.month == schedule.endDate.month &&
                     currentDate.day == schedule.endDate.day) ||
-                (currentDate.isAfter(DateTime(schedule.startDate.year, schedule.startDate.month, schedule.startDate.day)) &&
-                    currentDate.isBefore(DateTime(schedule.endDate.year, schedule.endDate.month, schedule.endDate.day)));
+                (currentDate.isAfter(DateTime(schedule.startDate.year,
+                    schedule.startDate.month, schedule.startDate.day)) &&
+                    currentDate.isBefore(DateTime(schedule.endDate.year,
+                        schedule.endDate.month, schedule.endDate.day)));
 
-        // 이미 추가되지 않은 일정인 경우에만 추가
+        // 중복되지 않은 스케줄만 추가
         if (isInSchedulePeriod && !displayedEventIds.contains(schedule.id)) {
           displayedEventIds.add(schedule.id);
 
+          // 스케줄 길이에 따라 이름 표시 날짜 결정
+          int scheduleLength = schedule.endDate.difference(schedule.startDate).inDays + 1;
+          DateTime middleDate;
+
+          if (scheduleLength % 2 == 0) {
+            // 짝수일 경우 중앙 - 1
+            middleDate = schedule.startDate.add(Duration(days: (scheduleLength ~/ 2) - 1));
+          } else {
+            // 홀수일 경우 중앙
+            middleDate = schedule.startDate.add(Duration(days: scheduleLength ~/ 2));
+          }
+
           bool isStart = currentDate.isAtSameMomentAs(schedule.startDate);
           bool isEnd = currentDate.isAtSameMomentAs(schedule.endDate);
-          bool isMiddle = currentDate.year == schedule.middleDate.year &&
-              currentDate.month == schedule.middleDate.month &&
-              currentDate.day == schedule.middleDate.day;
+          bool isMiddle = currentDate.isAtSameMomentAs(middleDate);
 
+          // 스케줄 위젯 추가
           eventWidgets.add(
             Container(
               height: 24,
@@ -511,14 +523,14 @@ class _CalendarPageState extends State<CalendarPage> {
               child: isMiddle
                   ? Center(
                 child: Text(
-                  schedule.owner.name,
+                  schedule.owner.name, // 중간 날짜에만 이름 표시
                   style: TextStyle(
                     color: schedule.owner.color,
                     fontSize: 12,
                   ),
                 ),
               )
-                  : null,
+                  : null, // 시작일과 종료일에는 이름을 표시하지 않음
             ),
           );
         }
@@ -528,7 +540,6 @@ class _CalendarPageState extends State<CalendarPage> {
     // 기존의 2개 초과 이벤트 처리 로직 유지
     int totalEvents = displayedEventIds.length;
     if (totalEvents > 2) {
-      // 기존 로직 그대로 유지
       eventWidgets = eventWidgets.take(2).toList();
       eventWidgets.add(
         Expanded(
@@ -558,7 +569,6 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
       );
     }
-
     return eventWidgets;
   }
 
