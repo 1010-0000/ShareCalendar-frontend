@@ -79,6 +79,7 @@ class FirebaseService {
     }
   }
 
+  /// 데이터베이스에서 유저 삭제
   Future<void> deleteUserFromFirebase() async {
     String userId = getCurrentUserId(); // 현재 사용자 ID 가져오기
     try {
@@ -191,6 +192,7 @@ class FirebaseService {
     }
   }
 
+  /// 해당 월에 포함된 할일이 있는 유저들 할일 정보와 합치기
   Future<List<Map<String, dynamic>>> fetchTasksForFilteredUsers(
       List<Map<String, dynamic>> filteredUsers, DateTime selectedMonth) async {
     List<Map<String, dynamic>> result = [];
@@ -236,6 +238,7 @@ class FirebaseService {
                     "endTime": taskData["endTime"] != null
                         ? "${taskData["endTime"]["hour"].toString().padLeft(2, '0')}:${taskData["endTime"]["minute"].toString().padLeft(2, '0')}"
                         : "",
+                    "isComplete": taskData["isComplete"] ?? false, // isComplete 값 추가
                   });
                 } else {
                   print("잘못된 데이터 형식 (userId: $userId, dateKey: $dateKey): $taskData");
@@ -319,6 +322,7 @@ class FirebaseService {
           "hour": schedule.endTime?.hour ?? 0,
           "minute": schedule.endTime?.minute ?? 0,
         },
+        "isComplete": false, // 기본값으로 추가
       };
       print("유저 id는 : ${userId}");
 

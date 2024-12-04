@@ -62,6 +62,8 @@ class _MainPageState extends State<MainPage> {
                 selectedDate.day == endDate.day);
       }).toList();
 
+      print("$filteredTasks");
+
       setState(() {
         _tasksByUser = filteredTasks;
         isLoading = false;
@@ -119,10 +121,10 @@ class _MainPageState extends State<MainPage> {
                 "endDate": taskData["endDate"] ?? '',
                 "startTime": taskData["startTime"] != null
                     ? '${taskData["startTime"]["hour"]}:${taskData["startTime"]["minute"]}'
-                    : '시간 없음',
+                    : '00:00',
                 "endTime": taskData["endTime"] != null
                     ? '${taskData["endTime"]["hour"]}:${taskData["endTime"]["minute"]}'
-                    : '시간 없음',
+                    : '00:00',
                 "isUser": userId == _firebaseService.getCurrentUserId(), // 본인 여부
               };
             }).toList();
