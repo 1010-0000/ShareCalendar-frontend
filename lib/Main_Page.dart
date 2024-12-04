@@ -22,7 +22,10 @@ class _MainPageState extends State<MainPage> {
   final dateFormat = DateFormat('M월 d일', 'ko_KR');
   String userName = '';
   final otherUsers = ['선준', '건우', '문권', '희찬'];
-  Map<String, StreamSubscription> _taskSubscriptions = {}; // 스트림 구독 관리용 변수
+  Map<String, StreamSubscription> _taskSubscriptions = {};
+
+  // 날짜별 완료 상태를 캐시하는 맵
+  Map<String, Map<String, bool>> _taskCompletionStatusCache = {};
 
   @override
   void initState() {
@@ -30,7 +33,7 @@ class _MainPageState extends State<MainPage> {
     selectedDate = DateTime.now();
     _generateWeekDays();
     _initializeData();
-    subscribeToAllTasks(); // 실시간 구독 추가
+    subscribeToAllTasks();
   }
 
   Future<void> _initializeData() async {
@@ -67,6 +70,15 @@ class _MainPageState extends State<MainPage> {
       setState(() {
         _tasksByUser = filteredTasks;
         isLoading = false;
+
+        // 날짜별로 완료 상태 캐시 관리
+        String dateKey = DateFormat('yyyy-MM-dd').format(selectedDate);
+        if (!_taskCompletionStatusCache.containsKey(dateKey)) {
+          _taskCompletionStatusCache[dateKey] = {
+            for (var task in filteredTasks)
+              task['title']: false
+          };
+        }
       });
     } catch (e) {
       print('오류 발생: $e');
@@ -176,12 +188,27 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+  void _toggleTaskCompletion(String taskTitle, bool isUser) {
+    setState(() {
+      String dateKey = DateFormat('yyyy-MM-dd').format(selectedDate);
 
+      // 해당 날짜의 완료 상태가 없으면 초기화
+      if (!_taskCompletionStatusCache.containsKey(dateKey)) {
+        _taskCompletionStatusCache[dateKey] = {};
+      }
 
+      // 자신의 일정인 경우에만 완료 상태 토글 가능
+      if (isUser) {
+        _taskCompletionStatusCache[dateKey]![taskTitle] =
+        !(_taskCompletionStatusCache[dateKey]![taskTitle] ?? false);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final currentDate = dateFormat.format(selectedDate);
+    String dateKey = DateFormat('yyyy-MM-dd').format(selectedDate);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0FFF0),
@@ -298,10 +325,14 @@ class _MainPageState extends State<MainPage> {
                                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                                     child: Row(
                                       children: [
-                                        const Icon(
-                                          Icons.calendar_today,
-                                          color: Colors.green,
-                                          size: 20,
+                                        Checkbox(
+                                          // 본인 일정이 아니라면 비활성화
+                                          value: _taskCompletionStatusCache[dateKey]?[schedule['title']] ?? false,
+                                          onChanged: schedule['isUser']
+                                              ? (value) {
+                                            _toggleTaskCompletion(schedule['title'], true);
+                                          }
+                                              : null, // 본인 일정이 아니면 null로 비활성화
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
@@ -383,5 +414,14 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    // 모든 스트림 구독 취소
+    _taskSubscriptions.forEach((key, subscription) {
+      subscription.cancel();
+    });
+    super.dispose();
   }
 }
