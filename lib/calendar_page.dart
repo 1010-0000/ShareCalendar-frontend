@@ -96,42 +96,42 @@ class _CalendarPageState extends State<CalendarPage> {
             Map<String, String> userInfo = await _firebaseService
                 .getUserNameAndColor(userId);
 
-            // 데이터를 Schedule 객체로 변환
-            List<Schedule> schedules = data.entries.map((entry) {
-              final taskData = entry.value as Map;
-
-              return Schedule(
-                id: entry.key ?? '',
-                title: taskData["title"] ?? '제목 없음',
-                startDate: taskData["startDate"] != null
-                    ? DateTime.parse(taskData["startDate"])
-                    : DateTime.now(),
-                startTime: taskData["startTime"] != null
-                    ? TimeOfDay(
-                  hour: taskData["startTime"]["hour"] ?? 0,
-                  minute: taskData["startTime"]["minute"] ?? 0,
-                )
-                    : null,
-                endDate: taskData["endDate"] != null
-                    ? DateTime.parse(taskData["endDate"])
-                    : DateTime.now(),
-                endTime: taskData["endTime"] != null
-                    ? TimeOfDay(
-                  hour: taskData["endTime"]["hour"] ?? 0,
-                  minute: taskData["endTime"]["minute"] ?? 0,
-                )
-                    : null,
-                memo: taskData["memo"] ?? '',
-                owner: OwnerInfo(
-                  name: userInfo["name"] ?? '알 수 없음',
-                  color: userInfo["color"] != null
-                      ? Color(int.tryParse(
-                      userInfo["color"]!.replaceFirst('#', '0xFF')) ??
-                      0xFF000000)
-                      : Colors.grey,
-                ),
-              );
-            }).toList();
+            // // 데이터를 Schedule 객체로 변환
+            // List<Schedule> schedules = data.entries.map((entry) {
+            //   final taskData = entry.value as Map;
+            //
+            //   return Schedule(
+            //     id: entry.key ?? '',
+            //     title: taskData["title"] ?? '제목 없음',
+            //     startDate: taskData["startDate"] != null
+            //         ? DateTime.parse(taskData["startDate"])
+            //         : DateTime.now(),
+            //     startTime: taskData["startTime"] != null
+            //         ? TimeOfDay(
+            //       hour: taskData["startTime"]["hour"] ?? 0,
+            //       minute: taskData["startTime"]["minute"] ?? 0,
+            //     )
+            //         : null,
+            //     endDate: taskData["endDate"] != null
+            //         ? DateTime.parse(taskData["endDate"])
+            //         : DateTime.now(),
+            //     endTime: taskData["endTime"] != null
+            //         ? TimeOfDay(
+            //       hour: taskData["endTime"]["hour"] ?? 0,
+            //       minute: taskData["endTime"]["minute"] ?? 0,
+            //     )
+            //         : null,
+            //     memo: taskData["memo"] ?? '',
+            //     owner: OwnerInfo(
+            //       name: userInfo["name"] ?? '알 수 없음',
+            //       color: userInfo["color"] != null
+            //           ? Color(int.tryParse(
+            //           userInfo["color"]!.replaceFirst('#', '0xFF')) ??
+            //           0xFF000000)
+            //           : Colors.grey,
+            //     ),
+            //   );
+            // }).toList();
 
             if (mounted) {
               setState(() {

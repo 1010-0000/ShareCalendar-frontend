@@ -261,9 +261,11 @@ class _ScheduleCreatePageState extends State<ScheduleCreatePage> {
                                 id: DateTime.now().toString(),
                                 title: _titleController.text,
                                 startDate: _startDate!,
-                                startTime: _startTime,
+                                startTime: _startTime ??
+                                    TimeOfDay(hour: 0, minute: 0), // 기본값 설정
                                 endDate: _endDate!,
-                                endTime: _endTime,
+                                endTime: _endTime ??
+                                    TimeOfDay(hour: 0, minute: 0), // 기본값 설정
                                 memo: _memoController.text,
                                 owner: widget.owner,
                               );
