@@ -97,10 +97,36 @@ class FirebaseService {
   Future<void> deleteUserFromFirebase() async {
     String userId = getCurrentUserId(); // 현재 사용자 ID 가져오기
     try {
-      // 1. Firebase Realtime Database에서 사용자 데이터 삭제
-      await database.child("users/$userId").remove();
+      // 1. calendar/{yearMonth}/{userId} 삭제
+      DataSnapshot calendarSnapshot = await database.child("calendar").get();
+      if (calendarSnapshot.exists) {
+        Map<String, dynamic> calendarData = Map<String, dynamic>.from(calendarSnapshot.value as Map);
+        for (String yearMonth in calendarData.keys) {
+          // 해당 월의 유저 uid 삭제
+          await database.child("calendar/$yearMonth/$userId").remove();
+        }
+      }
 
-      // 2. Firebase Authentication에서 사용자 계정 삭제
+      // 2. tasks/{userId} 삭제
+      await database.child("tasks/$userId").remove();
+
+      // 3. users/{userId} 삭제
+      DataSnapshot userSnapshot = await database.child("users/$userId").get();
+      if (userSnapshot.exists) {
+        // 친구 목록에서 내 uid를 제거
+        Map<String, dynamic> userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+        if (userData.containsKey('friends')) {
+          Map<String, dynamic> friends = Map<String, dynamic>.from(userData['friends']);
+          for (String friendId in friends.keys) {
+            await database.child("users/$friendId/friends/$userId").remove();
+          }
+        }
+
+        // 유저 데이터 삭제
+        await database.child("users/$userId").remove();
+      }
+
+      // 4. Firebase Authentication에서 사용자 계정 삭제
       User? currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null) {
         await currentUser.delete();
