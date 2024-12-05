@@ -68,7 +68,13 @@ class _ProfilePageState extends State<ProfilePage> {
     if (!isConfirmed) return;
 
     try {
+      // 모든 구독 해제
+      _firebaseService.disposeAllSubscriptions();
+
+      // Firebase에서 사용자 삭제
       await _firebaseService.deleteUserFromFirebase();
+
+      // 로그인 화면으로 이동
       Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
     } catch (e) {
       print('회원탈퇴 실패: $e');
