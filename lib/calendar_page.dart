@@ -78,6 +78,13 @@ class _CalendarPageState extends State<CalendarPage> {
     _taskSubscriptions = {}; // 구독 초기화
 
     try {
+// 기존 구독이 있으면 모두 취소
+      _taskSubscriptions.forEach((_, subscription) {
+        subscription.cancel();
+      });
+      _taskSubscriptions.clear();
+
+
       // 로그인한 사용자와 친구들의 UID 가져오기
       List<String> userAndFriendIds = await _firebaseService
           .getUserAndFriendIds();

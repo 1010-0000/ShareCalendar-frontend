@@ -81,6 +81,10 @@ class _ProfilePageState extends State<ProfilePage> {
   void _handleLogout(BuildContext context) async {
     if (await _showConfirmationDialog(context, '로그아웃')) {
       try {
+
+        // 모든 구독 해제
+        _firebaseService.disposeAllSubscriptions();
+
         // FirebaseService를 사용해 로그아웃 처리
         await _firebaseService.logoutUser();
 

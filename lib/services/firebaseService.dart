@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +15,18 @@ class FirebaseService {
   }
   // 내부에서만 호출할 수 있는 private constructor
   FirebaseService._internal();
+
+  final Map<String, StreamSubscription> _globalSubscriptions = {};
+
+  void addSubscription(String key, StreamSubscription subscription) {
+    _globalSubscriptions[key]?.cancel(); // 기존 구독 해제
+    _globalSubscriptions[key] = subscription;
+  }
+
+  void disposeAllSubscriptions() {
+    _globalSubscriptions.forEach((_, subscription) => subscription.cancel());
+    _globalSubscriptions.clear();
+  }
 
   String getCurrentUserId() {
     final currentUser = FirebaseAuth.instance.currentUser;
@@ -79,13 +93,40 @@ class FirebaseService {
     }
   }
 
+  /// 데이터베이스에서 유저 삭제
   Future<void> deleteUserFromFirebase() async {
     String userId = getCurrentUserId(); // 현재 사용자 ID 가져오기
     try {
-      // 1. Firebase Realtime Database에서 사용자 데이터 삭제
-      await database.child("users/$userId").remove();
+      // 1. calendar/{yearMonth}/{userId} 삭제
+      DataSnapshot calendarSnapshot = await database.child("calendar").get();
+      if (calendarSnapshot.exists) {
+        Map<String, dynamic> calendarData = Map<String, dynamic>.from(calendarSnapshot.value as Map);
+        for (String yearMonth in calendarData.keys) {
+          // 해당 월의 유저 uid 삭제
+          await database.child("calendar/$yearMonth/$userId").remove();
+        }
+      }
 
-      // 2. Firebase Authentication에서 사용자 계정 삭제
+      // 2. tasks/{userId} 삭제
+      await database.child("tasks/$userId").remove();
+
+      // 3. users/{userId} 삭제
+      DataSnapshot userSnapshot = await database.child("users/$userId").get();
+      if (userSnapshot.exists) {
+        // 친구 목록에서 내 uid를 제거
+        Map<String, dynamic> userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+        if (userData.containsKey('friends')) {
+          Map<String, dynamic> friends = Map<String, dynamic>.from(userData['friends']);
+          for (String friendId in friends.keys) {
+            await database.child("users/$friendId/friends/$userId").remove();
+          }
+        }
+
+        // 유저 데이터 삭제
+        await database.child("users/$userId").remove();
+      }
+
+      // 4. Firebase Authentication에서 사용자 계정 삭제
       User? currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null) {
         await currentUser.delete();
@@ -191,6 +232,7 @@ class FirebaseService {
     }
   }
 
+  /// 해당 월에 포함된 할일이 있는 유저들 할일 정보와 합치기
   Future<List<Map<String, dynamic>>> fetchTasksForFilteredUsers(
       List<Map<String, dynamic>> filteredUsers, DateTime selectedMonth) async {
     List<Map<String, dynamic>> result = [];
@@ -236,6 +278,7 @@ class FirebaseService {
                     "endTime": taskData["endTime"] != null
                         ? "${taskData["endTime"]["hour"].toString().padLeft(2, '0')}:${taskData["endTime"]["minute"].toString().padLeft(2, '0')}"
                         : "",
+                    "isComplete": taskData["isComplete"] ?? false, // isComplete 값 추가
                   });
                 } else {
                   print("잘못된 데이터 형식 (userId: $userId, dateKey: $dateKey): $taskData");
@@ -319,6 +362,7 @@ class FirebaseService {
           "hour": schedule.endTime?.hour ?? 0,
           "minute": schedule.endTime?.minute ?? 0,
         },
+        "isComplete": false, // 기본값으로 추가
       };
       print("유저 id는 : ${userId}");
 
@@ -411,5 +455,25 @@ class FirebaseService {
     }
   }
 
+  Future<void> updateTaskCompletionStatus(
+      String userId, String date, bool isComplete) async {
+    try {
+      // 날짜에서 불필요한 문자 제거 (Firebase 경로 허용 형식으로 변환)
+      String sanitizedDate = date.split('T').first;
 
+      print("변환된 날짜는 ${sanitizedDate}");
+      // Firebase 경로: tasks/유저UID/날짜
+      DatabaseReference taskDateRef = FirebaseDatabase.instance
+          .ref('tasks/$userId/$sanitizedDate');
+
+      // 날짜 하위에 isComplete 업데이트
+      await taskDateRef.update({
+        'isComplete': isComplete,
+      });
+
+      print('Task completion status for "$sanitizedDate" updated to $isComplete');
+    } catch (e) {
+      print('Failed to update task completion status: $e');
+    }
+  }
 }
