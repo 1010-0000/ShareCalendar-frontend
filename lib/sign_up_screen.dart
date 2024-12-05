@@ -1,3 +1,6 @@
+import 'dart:math';
+
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -15,6 +18,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _nicknameController = TextEditingController();
 
   String? _errorMessage;
+
+  // 랜덤 색상 생성 함수
+  String _generateRandomColor() {
+    final Random random = Random();
+    final int red = random.nextInt(256);
+    final int green = random.nextInt(256);
+    final int blue = random.nextInt(256);
+    return '#${red.toRadixString(16).padLeft(2, '0')}${green.toRadixString(16).padLeft(2, '0')}${blue.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+  }
 
   void _validateInputs() async {
     // 빈 칸 체크
@@ -43,6 +55,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     // Firebase 회원가입 로직 추가
     try {
+
+      // Firebase Auth로 사용자 생성
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
         email: _idController.text.trim(),
@@ -50,6 +64,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       await userCredential.user?.updateDisplayName(_nicknameController.text.trim());
+
+      // 랜덤 색상 생성
+      final String randomColor = _generateRandomColor();
+
+      // Firebase Realtime Database에 데이터 저장
+      DatabaseReference userRef = FirebaseDatabase.instance
+          .ref('users/${userCredential.user?.uid}');
+      await userRef.set({
+        'email': _idController.text.trim(),
+        'name': _nicknameController.text.trim(),
+        'color': randomColor,
+      });
+
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('회원가입이 성공적으로 완료되었습니다!')),
       );
