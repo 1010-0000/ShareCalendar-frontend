@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +15,18 @@ class FirebaseService {
   }
   // 내부에서만 호출할 수 있는 private constructor
   FirebaseService._internal();
+
+  final Map<String, StreamSubscription> _globalSubscriptions = {};
+
+  void addSubscription(String key, StreamSubscription subscription) {
+    _globalSubscriptions[key]?.cancel(); // 기존 구독 해제
+    _globalSubscriptions[key] = subscription;
+  }
+
+  void disposeAllSubscriptions() {
+    _globalSubscriptions.forEach((_, subscription) => subscription.cancel());
+    _globalSubscriptions.clear();
+  }
 
   String getCurrentUserId() {
     final currentUser = FirebaseAuth.instance.currentUser;
@@ -415,5 +429,25 @@ class FirebaseService {
     }
   }
 
+  Future<void> updateTaskCompletionStatus(
+      String userId, String date, bool isComplete) async {
+    try {
+      // 날짜에서 불필요한 문자 제거 (Firebase 경로 허용 형식으로 변환)
+      String sanitizedDate = date.split('T').first;
 
+      print("변환된 날짜는 ${sanitizedDate}");
+      // Firebase 경로: tasks/유저UID/날짜
+      DatabaseReference taskDateRef = FirebaseDatabase.instance
+          .ref('tasks/$userId/$sanitizedDate');
+
+      // 날짜 하위에 isComplete 업데이트
+      await taskDateRef.update({
+        'isComplete': isComplete,
+      });
+
+      print('Task completion status for "$sanitizedDate" updated to $isComplete');
+    } catch (e) {
+      print('Failed to update task completion status: $e');
+    }
+  }
 }

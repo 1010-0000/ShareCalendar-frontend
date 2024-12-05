@@ -113,7 +113,7 @@ class _MainPageState extends State<MainPage> {
         }
 
         // 새로운 구독 추가
-        _taskSubscriptions[userId] = tasksRef.onValue.listen((event) async {
+        _taskSubscriptions[userId] = tasksRef.onValue.listen((DatabaseEvent event) async {
           print('Firebase 구독 데이터 변경 감지 (사용자: $userId)');
 
           final data = event.snapshot.value;
@@ -166,7 +166,13 @@ class _MainPageState extends State<MainPage> {
                 }
 
                 // 필터링된 데이터 추가
-                _tasksByUser.addAll(filteredSchedules);
+                _tasksByUser.addAll(filteredSchedules.where((newTask) {
+                  return !_tasksByUser.any((existingTask) =>
+                  existingTask['title'] == newTask['title'] &&
+                      existingTask['startDate'] == newTask['startDate'] &&
+                      existingTask['endDate'] == newTask['endDate'] &&
+                      existingTask['name'] == newTask['name']);
+                }));
 
                 print('선택된 날짜의 일정 업데이트 완료: $_tasksByUser');
               });
@@ -188,21 +194,29 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  void _toggleTaskCompletion(String taskTitle, bool isUser) {
+  void _toggleTaskCompletion(Map<String, dynamic> task) {
     setState(() {
-      String dateKey = DateFormat('yyyy-MM-dd').format(selectedDate);
+      if (task['isUser'] == true) {
+        final newStatus = !(task['isComplete'] ?? false);
+        task['isComplete'] = newStatus;
 
-      // 해당 날짜의 완료 상태가 없으면 초기화
-      if (!_taskCompletionStatusCache.containsKey(dateKey)) {
-        _taskCompletionStatusCache[dateKey] = {};
-      }
-
-      // 자신의 일정인 경우에만 완료 상태 토글 가능
-      if (isUser) {
-        _taskCompletionStatusCache[dateKey]![taskTitle] =
-        !(_taskCompletionStatusCache[dateKey]![taskTitle] ?? false);
+        // Firebase에 업데이트
+        _firebaseService.updateTaskCompletionStatus(
+            task["userId"],   // 유저 UID
+            task['startDate'],  // 업데이트할 날짜
+            newStatus           // 완료 상태 (true 또는 false)
+        );
       }
     });
+  }
+
+  @override
+  void dispose() {
+    // 모든 스트림 구독 취소
+    _taskSubscriptions.forEach((key, subscription) {
+      subscription.cancel();
+    });
+    super.dispose();
   }
 
   @override
@@ -326,13 +340,19 @@ class _MainPageState extends State<MainPage> {
                                     child: Row(
                                       children: [
                                         Checkbox(
-                                          // 본인 일정이 아니라면 비활성화
-                                          value: _taskCompletionStatusCache[dateKey]?[schedule['title']] ?? false,
+                                          // // 본인 일정이 아니라면 비활성화
+                                          // value: _taskCompletionStatusCache[dateKey]?[schedule['title']] ?? false,
+                                          // onChanged: schedule['isUser']
+                                          //     ? (value) {
+                                          //   _toggleTaskCompletion(schedule['title'], true);
+                                          // }
+                                          //     : null, // 본인 일정이 아니면 null로 비활성화
+                                          value: schedule['isComplete'] ?? false, // Firebase에서 가져온 상태 반영
                                           onChanged: schedule['isUser']
                                               ? (value) {
-                                            _toggleTaskCompletion(schedule['title'], true);
+                                            _toggleTaskCompletion(schedule); // 상태 토글
                                           }
-                                              : null, // 본인 일정이 아니면 null로 비활성화
+                                              : null, // 본인 일정이 아니면 비활성화
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
@@ -414,14 +434,5 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    // 모든 스트림 구독 취소
-    _taskSubscriptions.forEach((key, subscription) {
-      subscription.cancel();
-    });
-    super.dispose();
   }
 }
