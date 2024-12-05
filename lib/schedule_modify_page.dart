@@ -171,18 +171,16 @@ class _ScheduleModifyPageState extends State<ScheduleModifyPage> {
                           SizedBox(width: 10),
                           Text('시작 날짜'),
                           Spacer(),
-                          GestureDetector(
-                            onTap: () => _selectDate(context, true),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                formatDate(_startDate),
-                                style: TextStyle(color: Colors.black54),
-                              ),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(5),
+                              color: Colors.grey[300], // 수정 불가 표시
+                            ),
+                            child: Text(
+                              formatDate(_startDate), // 고정된 시작 날짜 표시
+                              style: TextStyle(color: Colors.black54),
                             ),
                           ),
                         ],

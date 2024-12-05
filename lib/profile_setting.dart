@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:provider/provider.dart';
-import 'user_provider.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import './services/firebaseService.dart';
 
 class ProfileSetting extends StatefulWidget {
   const ProfileSetting({Key? key}) : super(key: key);
@@ -12,12 +10,11 @@ class ProfileSetting extends StatefulWidget {
 }
 
 class _ProfileSettingState extends State<ProfileSetting> {
-  final DatabaseReference database = FirebaseDatabase.instance.ref();
-  bool isLoading = true; // 로딩 상태 추가
-  String userId = '';
+  final FirebaseService _firebaseService = FirebaseService();
+  bool isLoading = true;
   String name = "";
-  String birthDate = "2001.08.25";
-  String gender = "남성";
+  String email = "";
+  String color = "#000000";
 
   @override
   void initState() {
@@ -28,61 +25,37 @@ class _ProfileSettingState extends State<ProfileSetting> {
   // 사용자 정보 가져오기
   Future<void> _loadUserData() async {
     try {
-      // // Provider에서 userId 가져오기
-      // userId = Provider.of<UserProvider>(context, listen: false).userId ?? '';
-
-      // Firebase Authentication을 통해 현재 로그인한 사용자 가져오기
-      User? currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
-        throw Exception("로그인된 사용자가 없습니다.");
-      }
-
-      // 사용자 ID
-      userId = currentUser.uid;
-
-      if (userId.isEmpty) {
-        throw Exception('로그인된 사용자가 없습니다.');
-      }
-
-      // Firebase에서 사용자 정보 가져오기
-      final userSnapshot = await database.child('users/$userId').get();
-
-      if (userSnapshot.exists) {
-        final userData = Map<String, dynamic>.from(userSnapshot.value as Map);
-
-        setState(() {
-          name = userData['name'] ?? '이름 없음';
-          // birthDate = userData['birthDate'] ?? '생년월일 없음';
-          // gender = userData['gender'] ?? '성별 없음';
-        });
-      } else {
-        throw Exception('사용자 데이터를 찾을 수 없습니다.');
-      }
-      // 리턴값을 다른 상태 변수에 저장하고 화면에 표시하고 싶다면 setState 사용
+      final userData = await _firebaseService.fetchUserData();
       setState(() {
-        isLoading = false; // 데이터 로드 완료
+        name = userData['name'] ?? '이름 없음';
+        email = userData['email'] ?? '이메일 없음';
+        color = userData['color'] ?? '#000000';
+        isLoading = false;
       });
     } catch (e) {
       print('오류 발생: $e');
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
   Future<void> _saveUserData() async {
     try {
-      if (userId.isEmpty) {
-        throw Exception('로그인된 사용자가 없습니다.');
-      }
-
-      // Firebase에 수정된 데이터 저장
-      await database.child('users/$userId').update({
+      final updatedData = {
         'name': name,
-      });
+        'email': email,
+        'color': color,
+      };
+
+      await _firebaseService.saveUserData(updatedData);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('프로필이 저장되었습니다.')),
       );
 
-      Navigator.pushNamed(context, '/profile');
+      // 수정된 데이터 반환
+      Navigator.pop(context, updatedData);
     } catch (e) {
       print('오류 발생: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -167,65 +140,68 @@ class _ProfileSettingState extends State<ProfileSetting> {
     );
   }
 
-  void _showBirthGenderDialog() {
-    TextEditingController birthController = TextEditingController(text: birthDate);
-    String selectedGender = gender;
+  void _showColorPickerDialog() {
+    // 현재 색상을 Color 객체로 변환
+    Color currentColor = Color(int.parse(color.replaceAll('#', '0xff')));
+    TextEditingController colorController = TextEditingController(text: color);
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text('생년월일/성별 수정'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: birthController,
-                    decoration: InputDecoration(
-                      labelText: '생년월일',
-                      hintText: 'YYYY.MM.DD',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: selectedGender,
-                    decoration: InputDecoration(
-                      labelText: '성별',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: ['남성', '여성'].map((String gender) {
-                      return DropdownMenuItem(
-                        value: gender,
-                        child: Text(gender),
-                      );
-                    }).toList(),
-                    onChanged: (String? value) {
-                      setState(() => selectedGender = value!);
-                    },
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('취소'),
-                ),
-                TextButton(
-                  onPressed: () {
+        return AlertDialog(
+          title: Text('색상 선택'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                // 색상 표 피커
+                BlockPicker(
+                  pickerColor: currentColor,
+                  onColorChanged: (Color pickedColor) {
                     setState(() {
-                      birthDate = birthController.text;
-                      gender = selectedGender;
+                      // 16진수 색상 코드로 변환 (# 포함)
+                      color = '#${pickedColor.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+                      colorController.text = color;
                     });
-                    Navigator.pop(context);
                   },
-                  child: Text('저장'),
+                ),
+                SizedBox(height: 16),
+                // 16진수 색상 코드 직접 입력 텍스트필드
+                TextField(
+                  controller: colorController,
+                  decoration: InputDecoration(
+                    labelText: '16진수 색상 코드 (#000000)',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    // 입력된 색상 코드 검증
+                    if (value.startsWith('#') && value.length == 7) {
+                      try {
+                        setState(() {
+                          color = value;
+                          currentColor = Color(int.parse(value.replaceAll('#', '0xff')));
+                        });
+                      } catch (e) {
+                        // 잘못된 색상 코드 처리
+                        print('잘못된 색상 코드: $value');
+                      }
+                    }
+                  },
                 ),
               ],
-            );
-          },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text('확인'),
+            ),
+          ],
         );
       },
     );
@@ -263,7 +239,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
               ),
             ],
           ),
-          body:Padding(
+          body: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,9 +263,17 @@ class _ProfileSettingState extends State<ProfileSetting> {
                 ),
                 _buildProfileItem(
                   context: context,
-                  label: '생년월일/성별',
-                  value: '$birthDate / $gender',
-                  onTap: _showBirthGenderDialog,
+                  label: '이메일',
+                  value: email,
+                  onTap: () => _showEditDialog('이메일', email, (newValue) {
+                    setState(() => email = newValue);
+                  }),
+                ),
+                _buildProfileItem(
+                  context: context,
+                  label: '색상',
+                  value: color,
+                  onTap: _showColorPickerDialog,
                 ),
               ],
             ),
@@ -297,9 +281,9 @@ class _ProfileSettingState extends State<ProfileSetting> {
         ),
         if (isLoading)
           Container(
-            color: Colors.black.withOpacity(0.5), // 전체 화면 반투명
+            color: Colors.black.withOpacity(0.5),
             child: Center(
-              child: CircularProgressIndicator(), // 중앙 로딩 인디케이터
+              child: CircularProgressIndicator(),
             ),
           ),
       ],

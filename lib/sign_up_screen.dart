@@ -1,3 +1,6 @@
+import 'dart:math';
+
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -16,33 +19,41 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   String? _errorMessage;
 
+  // 랜덤 색상 생성 함수
+  String _generateRandomColor() {
+    final Random random = Random();
+    final int red = random.nextInt(256);
+    final int green = random.nextInt(256);
+    final int blue = random.nextInt(256);
+    return '#${red.toRadixString(16).padLeft(2, '0')}${green.toRadixString(16).padLeft(2, '0')}${blue.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+  }
+
   void _validateInputs() async {
     // 빈 칸 체크
     if (_idController.text.isEmpty ||
         _passwordController.text.isEmpty ||
         _passwordCheckController.text.isEmpty ||
         _nicknameController.text.isEmpty) {
-      setState(() {
-        _errorMessage = '모든 항목을 입력해주세요.';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = '모든 항목을 입력해주세요.';
+        });
+      }
       return;
     }
 
     // 비밀번호 일치 체크
     if (_passwordController.text != _passwordCheckController.text) {
-      setState(() {
-        _errorMessage = '비밀번호와 비밀번호 확인 칸이 같지 않습니다.';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = '비밀번호와 비밀번호 확인 칸이 같지 않습니다.';
+        });
+      }
       return;
     }
 
-    // 모든 검증 통과
-    setState(() {
-      _errorMessage = null;
-    });
-
-    // Firebase 회원가입 로직 추가
     try {
+      // Firebase Auth 회원가입
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
         email: _idController.text.trim(),
@@ -50,26 +61,42 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       await userCredential.user?.updateDisplayName(_nicknameController.text.trim());
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('회원가입이 성공적으로 완료되었습니다!')),
-      );
-      Navigator.pop(context);
+
+      // Firebase Realtime Database 저장
+      final String randomColor = _generateRandomColor();
+      DatabaseReference userRef = FirebaseDatabase.instance.ref('users/${userCredential.user?.uid}');
+      await userRef.set({
+        'email': _idController.text.trim(),
+        'name': _nicknameController.text.trim(),
+        'color': randomColor,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('회원가입이 성공적으로 완료되었습니다!')),
+        );
+        Navigator.pop(context);
+      }
     } on FirebaseAuthException catch (e) {
-      setState(() {
-        if (e.code == 'email-already-in-use') {
-          _errorMessage = '이미 사용 중인 이메일입니다.';
-        } else if (e.code == 'weak-password') {
-          _errorMessage = '비밀번호가 너무 약합니다.';
-        } else if (e.code == 'invalid-email') {
-          _errorMessage = '잘못된 이메일 형식입니다.';
-        } else {
-          _errorMessage = '회원가입 실패: ${e.message}';
-        }
-      });
+      if (mounted) {
+        setState(() {
+          if (e.code == 'email-already-in-use') {
+            _errorMessage = '이미 사용 중인 이메일입니다.';
+          } else if (e.code == 'weak-password') {
+            _errorMessage = '비밀번호가 너무 약합니다.';
+          } else if (e.code == 'invalid-email') {
+            _errorMessage = '잘못된 이메일 형식입니다.';
+          } else {
+            _errorMessage = '회원가입 실패: ${e.message}';
+          }
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = '예기치 못한 오류가 발생했습니다: ${e.toString()}';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = '예기치 못한 오류가 발생했습니다: ${e.toString()}';
+        });
+      }
     }
   }
 

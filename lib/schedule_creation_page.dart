@@ -153,18 +153,16 @@ class _ScheduleCreatePageState extends State<ScheduleCreatePage> {
                           SizedBox(width: 10),
                           Text('시작 날짜'),
                           Spacer(),
-                          GestureDetector(
-                            onTap: () => _selectDate(context, true),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                formatDate(_startDate),
-                                style: TextStyle(color: Colors.black54),
-                              ),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(5),
+                              color: Colors.grey[300], // 수정 불가 표시
+                            ),
+                            child: Text(
+                              formatDate(_startDate), // 수정 불가로 고정된 날짜 표시
+                              style: TextStyle(color: Colors.black54),
                             ),
                           ),
                         ],
@@ -263,9 +261,11 @@ class _ScheduleCreatePageState extends State<ScheduleCreatePage> {
                                 id: DateTime.now().toString(),
                                 title: _titleController.text,
                                 startDate: _startDate!,
-                                startTime: _startTime,
+                                startTime: _startTime ??
+                                    TimeOfDay(hour: 0, minute: 0), // 기본값 설정
                                 endDate: _endDate!,
-                                endTime: _endTime,
+                                endTime: _endTime ??
+                                    TimeOfDay(hour: 0, minute: 0), // 기본값 설정
                                 memo: _memoController.text,
                                 owner: widget.owner,
                               );

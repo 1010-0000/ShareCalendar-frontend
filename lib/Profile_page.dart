@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'alarm_settings_page.dart';
-import 'profile_setting.dart';  // 새로 추가된 import
+import 'friend_management_page.dart';
 import 'bottom_icons.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:provider/provider.dart';
 import 'user_provider.dart';
-import 'services/firebaseService.dart';
+import './services/firebaseService.dart';
+import './profile_setting.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -17,10 +16,8 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseService _firebaseService = FirebaseService();
-  final DatabaseReference database = FirebaseDatabase.instance.ref();
-  bool isLoading = true; // 로딩 상태 추가
-  String userName = '';
-  String userEmail = '';
+  String userName = '로딩 중...';
+  String userEmail = '로딩 중...';
 
   @override
   void initState() {
@@ -30,18 +27,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchUserData() async {
     try {
-      // FirebaseService의 getUserData 호출
-      final userData = await _firebaseService.getUserNameEmail();
+      final userInfo = await _firebaseService.getUserNameEmail();
       setState(() {
-        userName = userData['name'].toString();
-        userEmail = userData['email'].toString();
-        isLoading = false;
+        userName = userInfo['name'] ?? '이름 없음';
+        userEmail = userInfo['email'] ?? '이메일 없음';
       });
     } catch (e) {
       print('오류 발생: $e');
       setState(() {
-        userName = "오류";
-        userEmail = "오류";
+        userName = '오류 발생';
+        userEmail = '오류 발생';
       });
     }
   }
@@ -68,133 +63,154 @@ class _ProfilePageState extends State<ProfilePage> {
     ) ?? false;
   }
 
-  void _handleLogout(BuildContext context) async {
-    if (await _showConfirmationDialog(context, '로그아웃')) {
-      // Firebase 로그아웃
-      await FirebaseAuth.instance.signOut();
+  Future<void> deleteUserAccount(BuildContext context) async {
+    final isConfirmed = await _showConfirmationDialog(context, '회원탈퇴');
+    if (!isConfirmed) return;
 
-      // Provider의 사용자 정보 초기화
-      Provider.of<UserProvider>(context, listen: false).clearUser();
+    try {
+      // 모든 구독 해제
+      _firebaseService.disposeAllSubscriptions();
 
-      // Implement logout logic here
-      Navigator.pushNamedAndRemoveUntil(
-          context, "/", (route) => false
+      // Firebase에서 사용자 삭제
+      await _firebaseService.deleteUserFromFirebase();
+
+      // 로그인 화면으로 이동
+      Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
+    } catch (e) {
+      print('회원탈퇴 실패: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('회원탈퇴 실패. 관리자에게 문의하세요.')),
       );
-
     }
   }
 
-  void _handleDeleteAccount(BuildContext context) async {
-    if (await _showConfirmationDialog(context, '회원탈퇴')) {
-      // Implement account deletion logic here
-      Navigator.pushNamedAndRemoveUntil(
-          context, "/", (route) => false
-      );
+  void _handleLogout(BuildContext context) async {
+    if (await _showConfirmationDialog(context, '로그아웃')) {
+      try {
+
+        // 모든 구독 해제
+        _firebaseService.disposeAllSubscriptions();
+
+        // FirebaseService를 사용해 로그아웃 처리
+        await _firebaseService.logoutUser();
+
+        // Provider의 사용자 정보 초기화
+        Provider.of<UserProvider>(context, listen: false).clearUser();
+
+        // 로그인 화면으로 이동
+        Navigator.pushNamedAndRemoveUntil(
+          context, "/", (route) => false,
+        );
+      } catch (e) {
+        print('로그아웃 실패: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('로그아웃 실패. 관리자에게 문의하세요.')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            actions: [
-              IconButton(
-                icon: Icon(Icons.settings, color: Colors.grey),
-                onPressed: () {
-                  Navigator.pushNamed(context,'/profileSetting');
-                },
-              ),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings, color: Colors.grey),
+            onPressed: () async {
+              // ProfileSetting에서 반환된 데이터를 받음
+              final updatedData = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ProfileSetting()),
+              );
+
+              // 업데이트된 데이터를 상태에 반영
+              if (updatedData != null && mounted) {
+                setState(() {
+                  userName = updatedData['name'] ?? userName;
+                  userEmail = updatedData['email'] ?? userEmail;
+                });
+              }
+            },
           ),
-          body:Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  children: [
-                    // 기존 Profile 섹션 코드...
-                    Center(
-                      child: Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundImage: null,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            userName,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            userEmail,
-                            style: TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              children: [
+                Center(
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundImage: null,
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    // Menu items...
-                    ListTile(
-                      title: Text('알림 설정'),
-                      trailing: Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => AlarmSettingsPage()),
-                        );
-                      },
-                    ),
-                    Divider(),
-                    ListTile(
-                      title: Text('친구 관리'),
-                      trailing: Icon(Icons.chevron_right),
-                      onTap: () {
-                        // Implement friend management navigation
-                      },
-                    ),
-                    Divider(),
-                    ListTile(
-                      title: Text('로그아웃'),
-                      trailing: Icon(Icons.chevron_right),
-                      onTap: () => _handleLogout(context),
-                    ),
-                    const SizedBox(height: 40),
-                    // Delete account button
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: TextButton(
-                        onPressed: () => _handleDeleteAccount(context),
-                        child: Text(
-                          '회원탈퇴',
-                          style: TextStyle(color: Colors.grey),
+                      const SizedBox(height: 10),
+                      Text(
+                        userName,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  ],
+                      Text(
+                        userEmail,
+                        style: TextStyle(
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              BottomIcons(),
-            ],
-          ),
-        ),
-
-        // 로딩 오버레이
-        if (isLoading)
-          Container(
-            color: Colors.black.withOpacity(0.5), // 반투명 배경
-            child: Center(
-              child: CircularProgressIndicator(), // 로딩 인디케이터
+                const SizedBox(height: 20),
+                ListTile(
+                  title: Text('알림 설정'),
+                  trailing: Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => AlarmSettingsPage()),
+                    );
+                  },
+                ),
+                Divider(),
+                ListTile(
+                  title: Text('친구 관리'),
+                  trailing: Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => FriendManagementPage()),
+                    );
+                  },
+                ),
+                Divider(),
+                ListTile(
+                  title: Text('로그아웃'),
+                  trailing: Icon(Icons.chevron_right),
+                  onTap: () => _handleLogout(context),
+                ),
+                const SizedBox(height: 40),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextButton(
+                    onPressed: () => deleteUserAccount(context),
+                    child: Text(
+                      '회원탈퇴',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-      ],
+          BottomIcons(),
+        ],
+      ),
     );
   }
 }

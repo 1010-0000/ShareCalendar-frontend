@@ -1,25 +1,29 @@
-name: sharecalendar_app  # 첫 번째 파일의 프로젝트 이름
+name: sharecalendar_app
 description: "A new Flutter project."
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
-
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.5.4  # 첫 번째 파일에 맞는 SDK 버전으로 수정
+  sdk: ^3.5.4
 
 dependencies:
   flutter:
     sdk: flutter
   provider: ^6.1.2
-  intl: ^0.19.0  # 추가된 부분
-  font_awesome_flutter: ^10.0.0  # 추가된 부분
-  flutter_localizations:  # 추가된 부분
+  intl: ^0.19.0
+  font_awesome_flutter: ^10.0.0
+  flutter_localizations:
     sdk: flutter
-  cupertino_icons: ^1.0.8  # 첫 번째 파일에 포함된 패키지
-  firebase_core: ^3.8.0
+  cupertino_icons: ^1.0.8
+  firebase_core:
   firebase_auth:
-  firebase_database: ^11.1.6
-  shared_preferences: ^2.2.2  # 추가된 부분
+  firebase_database:
+  shared_preferences: ^2.0.17
+  uuid: ^3.0.7
+  collection: ^1.17.0
+
+  # 새로 추가된 패키지
+  flutter_colorpicker: 1.1.0  # 최신 버전 사용
 
 dev_dependencies:
   flutter_test:
@@ -29,7 +33,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # 추가된 자산 및 폰트 관련 항목은 주석처리된 예시
+  # assets 및 fonts 섹션은 필요에 따라 주석 해제하여 사용
   # assets:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
@@ -40,8 +44,3 @@ flutter:
   #       - asset: fonts/Schyler-Regular.ttf
   #       - asset: fonts/Schyler-Italic.ttf
   #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
-  #         weight: 700
