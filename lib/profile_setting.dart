@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import './services/firebaseService.dart';
 
 class ProfileSetting extends StatefulWidget {
@@ -10,7 +11,7 @@ class ProfileSetting extends StatefulWidget {
 
 class _ProfileSettingState extends State<ProfileSetting> {
   final FirebaseService _firebaseService = FirebaseService();
-  bool isLoading = true; // 로딩 상태 추가
+  bool isLoading = true;
   String name = "";
   String email = "";
   String color = "#000000";
@@ -29,7 +30,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
         name = userData['name'] ?? '이름 없음';
         email = userData['email'] ?? '이메일 없음';
         color = userData['color'] ?? '#000000';
-        isLoading = false; // 데이터 로드 완료
+        isLoading = false;
       });
     } catch (e) {
       print('오류 발생: $e');
@@ -140,18 +141,53 @@ class _ProfileSettingState extends State<ProfileSetting> {
   }
 
   void _showColorPickerDialog() {
+    // 현재 색상을 Color 객체로 변환
+    Color currentColor = Color(int.parse(color.replaceAll('#', '0xff')));
     TextEditingController colorController = TextEditingController(text: color);
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('색상 수정'),
-          content: TextField(
-            controller: colorController,
-            decoration: InputDecoration(
-              labelText: '16진수 색상 코드 (#000000)',
-              border: OutlineInputBorder(),
+          title: Text('색상 선택'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                // 색상 표 피커
+                BlockPicker(
+                  pickerColor: currentColor,
+                  onColorChanged: (Color pickedColor) {
+                    setState(() {
+                      // 16진수 색상 코드로 변환 (# 포함)
+                      color = '#${pickedColor.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+                      colorController.text = color;
+                    });
+                  },
+                ),
+                SizedBox(height: 16),
+                // 16진수 색상 코드 직접 입력 텍스트필드
+                TextField(
+                  controller: colorController,
+                  decoration: InputDecoration(
+                    labelText: '16진수 색상 코드 (#000000)',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    // 입력된 색상 코드 검증
+                    if (value.startsWith('#') && value.length == 7) {
+                      try {
+                        setState(() {
+                          color = value;
+                          currentColor = Color(int.parse(value.replaceAll('#', '0xff')));
+                        });
+                      } catch (e) {
+                        // 잘못된 색상 코드 처리
+                        print('잘못된 색상 코드: $value');
+                      }
+                    }
+                  },
+                ),
+              ],
             ),
           ),
           actions: [
@@ -161,12 +197,9 @@ class _ProfileSettingState extends State<ProfileSetting> {
             ),
             TextButton(
               onPressed: () {
-                setState(() {
-                  color = colorController.text;
-                });
                 Navigator.pop(context);
               },
-              child: Text('저장'),
+              child: Text('확인'),
             ),
           ],
         );
@@ -248,9 +281,9 @@ class _ProfileSettingState extends State<ProfileSetting> {
         ),
         if (isLoading)
           Container(
-            color: Colors.black.withOpacity(0.5), // 전체 화면 반투명
+            color: Colors.black.withOpacity(0.5),
             child: Center(
-              child: CircularProgressIndicator(), // 중앙 로딩 인디케이터
+              child: CircularProgressIndicator(),
             ),
           ),
       ],
